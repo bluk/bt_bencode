@@ -1,0 +1,22 @@
+[package]
+name = "bt_bencode"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+authors = ["Bryant Luk <code@bryantluk.com>"]
+edition = "2018"
+description = "A Bencode encoding/decoding implementation."
+repository = "https://github.com/bluk/bt_bencode"
+readme = "README.md"
+include = [
+  "src/**/*.rs",
+  "Cargo.toml",
+  "README.md",
+  "LICENSE-APACHE",
+  "LICENSE-MIT",
+]
+
+[dependencies]
+serde = "1"
+
+[dev-dependencies]
+serde_derive = "1"
