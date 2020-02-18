@@ -1,5 +1,4 @@
 use crate::error::{Error, Result};
-use itoa;
 use serde::{ser, Serialize};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
