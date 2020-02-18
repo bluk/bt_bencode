@@ -207,7 +207,7 @@ macro_rules! forward_deserialize_signed_integer {
         {
             self.deserialize_i64(visitor)
         }
-    }
+    };
 }
 
 macro_rules! forward_deserialize_unsigned_integer {
@@ -218,7 +218,7 @@ macro_rules! forward_deserialize_unsigned_integer {
         {
             self.deserialize_u64(visitor)
         }
-    }
+    };
 }
 
 impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
