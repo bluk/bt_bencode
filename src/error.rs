@@ -1,4 +1,4 @@
-use serde::de;
+use serde::{de, ser};
 use std::fmt::{self, Display};
 use std::{error, io, result};
 
@@ -17,8 +17,12 @@ pub enum Error {
     InvalidList,
     IoError(io::Error),
     KeyMustBeAByteStr,
+    KeyWithoutValue,
     ParseIntError(std::num::ParseIntError),
+    Serialize(String),
     TrailingData,
+    UnsupportedType,
+    ValueWithoutKey,
 }
 
 impl error::Error for Error {
@@ -34,8 +38,12 @@ impl error::Error for Error {
             Error::InvalidList => None,
             Error::IoError(err) => Some(err),
             Error::KeyMustBeAByteStr => None,
+            Error::KeyWithoutValue => None,
             Error::ParseIntError(err) => Some(err),
+            Error::Serialize(_) => None,
             Error::TrailingData => None,
+            Error::UnsupportedType => None,
+            Error::ValueWithoutKey => None,
         }
     }
 }
@@ -53,8 +61,12 @@ impl Display for Error {
             Error::InvalidList => f.write_str("invalid list"),
             Error::IoError(err) => Display::fmt(&*err, f),
             Error::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
+            Error::KeyWithoutValue => f.write_str("key without value"),
             Error::ParseIntError(err) => Display::fmt(&*err, f),
+            Error::Serialize(str) => f.write_str(str),
             Error::TrailingData => f.write_str("trailing data error"),
+            Error::UnsupportedType => f.write_str("unsupported type"),
+            Error::ValueWithoutKey => f.write_str("value without key"),
         }
     }
 }
@@ -90,5 +102,11 @@ impl de::Error for Error {
             "unexpected type error. invalid_type={}, expected_type={}",
             unexp, exp
         ))
+    }
+}
+
+impl ser::Error for Error {
+    fn custom<T: Display>(msg: T) -> Self {
+        Error::Serialize(msg.to_string())
     }
 }
