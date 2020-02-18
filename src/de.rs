@@ -1,9 +1,11 @@
-use std::io;
-
-use serde::de::{self, Expected, Unexpected};
-
 use crate::error::{Error, Result};
 use crate::read::{self, Read};
+use serde::de::{self, Expected, Unexpected};
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{string::String, vec, vec::Vec};
+#[cfg(feature = "std")]
+use std::{io, string::String, vec, vec::Vec};
 
 /// Deserializes an instance of `T` from the bytes of an `io::Read` type.
 ///
@@ -11,6 +13,7 @@ use crate::read::{self, Read};
 ///
 /// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
 /// into an instance of `T`, and other IO errors.
+#[cfg(feature = "std")]
 pub fn from_reader<R, T>(r: R) -> Result<T>
 where
     R: io::Read,
@@ -178,6 +181,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<R> Deserializer<read::IoRead<R>>
 where
     R: io::Read,
@@ -581,6 +585,10 @@ where
 mod tests {
     use super::*;
     use serde_derive::Deserialize;
+
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::collections::BTreeMap;
+    #[cfg(feature = "std")]
     use std::collections::BTreeMap;
 
     #[test]

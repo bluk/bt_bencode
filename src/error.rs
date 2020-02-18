@@ -1,6 +1,20 @@
 use serde::{de, ser};
-use std::fmt::{self, Display};
-use std::{error, io, result};
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{
+    format,
+    string::{self, String, ToString},
+};
+#[cfg(feature = "std")]
+use std::{
+    error, format, io,
+    string::{self, String, ToString},
+};
+
+use core::{
+    fmt::{self, Display},
+    num, result,
+};
 
 /// A convenience `Result` type for this crate.
 pub type Result<T> = result::Result<T, Error>;
@@ -10,21 +24,23 @@ pub enum Error {
     Deserialize(String),
     EofWhileParsingValue,
     ExpectedSomeValue,
-    FromUtf8Error(std::string::FromUtf8Error),
+    FromUtf8Error(string::FromUtf8Error),
     InvalidByteStrLen,
     InvalidInteger,
     InvalidDict,
     InvalidList,
+    #[cfg(feature = "std")]
     IoError(io::Error),
     KeyMustBeAByteStr,
     KeyWithoutValue,
-    ParseIntError(std::num::ParseIntError),
+    ParseIntError(num::ParseIntError),
     Serialize(String),
     TrailingData,
     UnsupportedType,
     ValueWithoutKey,
 }
 
+#[cfg(feature = "std")]
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
@@ -36,6 +52,7 @@ impl error::Error for Error {
             Error::InvalidInteger => None,
             Error::InvalidDict => None,
             Error::InvalidList => None,
+            #[cfg(feature = "std")]
             Error::IoError(err) => Some(err),
             Error::KeyMustBeAByteStr => None,
             Error::KeyWithoutValue => None,
@@ -59,6 +76,7 @@ impl Display for Error {
             Error::InvalidInteger => f.write_str("invalid integer"),
             Error::InvalidDict => f.write_str("invalid dictionary"),
             Error::InvalidList => f.write_str("invalid list"),
+            #[cfg(feature = "std")]
             Error::IoError(err) => Display::fmt(&*err, f),
             Error::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
             Error::KeyWithoutValue => f.write_str("key without value"),
@@ -71,6 +89,7 @@ impl Display for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl From<Error> for io::Error {
     fn from(other: Error) -> Self {
         match other {
@@ -80,14 +99,14 @@ impl From<Error> for io::Error {
     }
 }
 
-impl From<std::string::FromUtf8Error> for Error {
-    fn from(other: std::string::FromUtf8Error) -> Self {
+impl From<string::FromUtf8Error> for Error {
+    fn from(other: string::FromUtf8Error) -> Self {
         Error::FromUtf8Error(other)
     }
 }
 
-impl From<std::num::ParseIntError> for Error {
-    fn from(other: std::num::ParseIntError) -> Self {
+impl From<num::ParseIntError> for Error {
+    fn from(other: num::ParseIntError) -> Self {
         Error::ParseIntError(other)
     }
 }
@@ -104,6 +123,9 @@ impl de::Error for Error {
         ))
     }
 }
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+impl de::StdError for Error {}
 
 impl ser::Error for Error {
     fn custom<T: Display>(msg: T) -> Self {

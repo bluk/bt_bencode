@@ -1,6 +1,9 @@
+#[cfg(feature = "std")]
+use crate::error::Error;
+#[cfg(feature = "std")]
 use std::io;
 
-use crate::error::{Error, Result};
+use crate::error::Result;
 
 pub trait Read<'de> {
     fn next(&mut self) -> Option<Result<u8>>;
@@ -8,6 +11,7 @@ pub trait Read<'de> {
     fn byte_offset(&self) -> usize;
 }
 
+#[cfg(feature = "std")]
 pub(crate) struct IoRead<R>
 where
     R: io::Read,
@@ -17,6 +21,7 @@ where
     byte_offset: usize,
 }
 
+#[cfg(feature = "std")]
 impl<R> IoRead<R>
 where
     R: io::Read,
@@ -30,6 +35,7 @@ where
     }
 }
 
+#[cfg(feature = "std")]
 impl<'de, R> Read<'de> for IoRead<R>
 where
     R: io::Read,

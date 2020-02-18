@@ -3,8 +3,11 @@ use serde::{
     ser::Serialize,
 };
 use serde_bytes::ByteBuf;
-use std::collections::BTreeMap;
-use std::fmt;
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{collections::BTreeMap, fmt, string::String, vec::Vec};
+#[cfg(feature = "std")]
+use std::{collections::BTreeMap, fmt, string::String, vec::Vec};
 
 /// A Bencoded number.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -127,6 +130,11 @@ mod tests {
     use super::*;
     use crate::error::Result;
 
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::vec;
+    #[cfg(feature = "std")]
+    use std::vec;
+
     #[test]
     fn test_deserialize_string() -> Result<()> {
         let input = "4:spam";
@@ -208,6 +216,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_string() -> Result<()> {
         let expected = "4:spam";
         let v: Vec<u8> = crate::ser::to_vec(&Value::ByteStr(ByteBuf::from(String::from("spam"))))?;
@@ -216,6 +225,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_integer_1() -> Result<()> {
         let expected = "i3e";
         let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Unsigned(3)))?;
@@ -224,6 +234,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_integer_2() -> Result<()> {
         let expected = "i-3e";
         let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Signed(-3)))?;
@@ -232,6 +243,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_integer_3() -> Result<()> {
         let expected = "i0e";
         let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Unsigned(0)))?;
@@ -240,6 +252,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_list() -> Result<()> {
         let expected = "l4:spam4:eggse";
         let v: Vec<u8> = crate::ser::to_vec(&Value::List(vec![
@@ -251,6 +264,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_dict_1() -> Result<()> {
         let expected = "d3:cow3:moo4:spam4:eggse";
         let mut dict = BTreeMap::new();
@@ -268,6 +282,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "std")]
     fn test_serialize_dict_2() -> Result<()> {
         let expected = "d4:spaml1:a1:bee";
         let mut dict = BTreeMap::new();

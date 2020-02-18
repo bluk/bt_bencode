@@ -1,8 +1,11 @@
 use crate::error::{Error, Result};
 use itoa;
 use serde::{ser, Serialize};
-use std::collections::BTreeMap;
-use std::io;
+
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::{collections::BTreeMap, vec::Vec};
+#[cfg(feature = "std")]
+use std::{collections::BTreeMap, io, vec::Vec};
 
 /// Serializes an instance of `T` into the writer `W` as `Bencode` data.
 ///
@@ -593,6 +596,11 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
 mod tests {
     use super::*;
     use serde_bytes::ByteBuf;
+
+    #[cfg(all(feature = "alloc", not(feature = "std")))]
+    use alloc::string::String;
+    #[cfg(feature = "std")]
+    use std::string::String;
 
     #[test]
     fn test_serialize_bool() {
