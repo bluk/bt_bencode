@@ -1,4 +1,7 @@
-use serde::de::{Deserialize, MapAccess, SeqAccess, Visitor};
+use serde::{
+    de::{Deserialize, MapAccess, SeqAccess, Visitor},
+    ser::Serialize,
+};
 use serde_bytes::ByteBuf;
 use std::collections::BTreeMap;
 use std::fmt;
@@ -102,6 +105,23 @@ impl<'de> Deserialize<'de> for Value {
     }
 }
 
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            Value::ByteStr(ref b) => b.serialize(serializer),
+            Value::Int(i) => match i {
+                Number::Signed(s) => s.serialize(serializer),
+                Number::Unsigned(u) => u.serialize(serializer),
+            },
+            Value::List(l) => l.serialize(serializer),
+            Value::Dict(d) => d.serialize(serializer),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,7 +129,8 @@ mod tests {
 
     #[test]
     fn test_deserialize_string() -> Result<()> {
-        let v: Value = crate::de::from_slice("4:spam".as_bytes())?;
+        let input = "4:spam";
+        let v: Value = crate::de::from_slice(input.as_bytes())?;
         assert_eq!(v, Value::ByteStr(ByteBuf::from(String::from("spam"))));
         Ok(())
     }
@@ -183,6 +204,82 @@ mod tests {
             ]),
         );
         assert_eq!(v, Value::Dict(expected));
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_string() -> Result<()> {
+        let expected = "4:spam";
+        let v: Vec<u8> = crate::ser::to_vec(&Value::ByteStr(ByteBuf::from(String::from("spam"))))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_integer_1() -> Result<()> {
+        let expected = "i3e";
+        let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Unsigned(3)))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_integer_2() -> Result<()> {
+        let expected = "i-3e";
+        let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Signed(-3)))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_integer_3() -> Result<()> {
+        let expected = "i0e";
+        let v: Vec<u8> = crate::ser::to_vec(&Value::Int(Number::Unsigned(0)))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_list() -> Result<()> {
+        let expected = "l4:spam4:eggse";
+        let v: Vec<u8> = crate::ser::to_vec(&Value::List(vec![
+            Value::ByteStr(ByteBuf::from(String::from("spam"))),
+            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+        ]))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_dict_1() -> Result<()> {
+        let expected = "d3:cow3:moo4:spam4:eggse";
+        let mut dict = BTreeMap::new();
+        dict.insert(
+            ByteBuf::from(String::from("cow")),
+            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+        );
+        dict.insert(
+            ByteBuf::from(String::from("spam")),
+            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+        );
+        let v: Vec<u8> = crate::ser::to_vec(&Value::Dict(dict))?;
+        assert_eq!(v, expected.to_string().into_bytes());
+        Ok(())
+    }
+
+    #[test]
+    fn test_serialize_dict_2() -> Result<()> {
+        let expected = "d4:spaml1:a1:bee";
+        let mut dict = BTreeMap::new();
+        dict.insert(
+            ByteBuf::from(String::from("spam")),
+            Value::List(vec![
+                Value::ByteStr(ByteBuf::from(String::from("a"))),
+                Value::ByteStr(ByteBuf::from(String::from("b"))),
+            ]),
+        );
+        let v: Vec<u8> = crate::ser::to_vec(&Value::Dict(dict))?;
+        assert_eq!(v, expected.to_string().into_bytes());
         Ok(())
     }
 }
