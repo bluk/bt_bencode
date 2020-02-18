@@ -4,6 +4,8 @@ BtBencode is a library which can help with [Bencode][wikipedia_bencode]
 encoding/decoding.  Bencode is primarily used in [BitTorrent][bep_0003] related
 applications.
 
+It provides a [Serde][serde] serializer and deserializer.
+
 ## Installation
 
 ```toml
@@ -26,3 +28,4 @@ dual licensed as above, without any additional terms or conditions.
 [LICENSE_MIT]: LICENSE-MIT
 [wikipedia_bencode]: https://en.wikipedia.org/wiki/Bencode
 [bep_0003]: http://www.bittorrent.org/beps/bep_0003.html
+[serde]: https://serde.rs
