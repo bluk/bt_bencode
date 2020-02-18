@@ -15,7 +15,9 @@ mod de;
 mod error;
 mod read;
 mod ser;
+mod value;
 
 pub use de::{from_reader, from_slice, Deserializer};
 pub use error::{Error, Result};
 pub use ser::{to_vec, to_writer, Serializer};
+pub use value::Value;
