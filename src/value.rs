@@ -125,6 +125,10 @@ impl Serialize for Value {
     }
 }
 
+mod de;
+
+pub use de::from_value;
+
 #[cfg(test)]
 mod tests {
     use super::*;
