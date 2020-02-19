@@ -25,7 +25,7 @@ mod value;
 
 pub use de::{from_slice, Deserializer};
 pub use error::{Error, Result};
-pub use value::{from_value, Value};
+pub use value::{from_value, to_value, Value};
 
 #[cfg(feature = "std")]
 pub use ser::{to_vec, to_writer, Serializer};
