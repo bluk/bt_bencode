@@ -5,9 +5,9 @@ use serde::{
 use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{collections::BTreeMap, fmt, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, fmt, str, string::String, vec::Vec};
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, fmt, string::String, vec::Vec};
+use std::{collections::BTreeMap, fmt, str, string::String, vec::Vec};
 
 /// A Bencoded number.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -33,6 +33,108 @@ pub enum Value {
     List(Vec<Value>),
     /// A dictionary of values.
     Dict(BTreeMap<ByteBuf, Value>),
+}
+
+impl Value {
+    pub fn as_byte_str(&self) -> Option<&ByteBuf> {
+        match self {
+            Value::ByteStr(b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn as_byte_str_mut(&mut self) -> Option<&mut ByteBuf> {
+        match self {
+            Value::ByteStr(ref mut b) => Some(b),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> Option<&str> {
+        match self {
+            Value::ByteStr(b) => str::from_utf8(b.as_slice()).ok(),
+            _ => None,
+        }
+    }
+
+    pub fn as_str_mut(&mut self) -> Option<&mut str> {
+        match self {
+            Value::ByteStr(ref mut b) => str::from_utf8_mut(b.as_mut_slice()).ok(),
+            _ => None,
+        }
+    }
+
+    pub fn as_u64(&self) -> Option<u64> {
+        match self {
+            Value::Int(n) => match n {
+                Number::Unsigned(n) => Some(*n),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_i64(&self) -> Option<i64> {
+        match self {
+            Value::Int(n) => match n {
+                Number::Signed(n) => Some(*n),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    pub fn as_array(&self) -> Option<&Vec<Value>> {
+        match self {
+            Value::List(ref l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
+        match self {
+            Value::List(ref mut l) => Some(l),
+            _ => None,
+        }
+    }
+
+    pub fn as_dict(&self) -> Option<&BTreeMap<ByteBuf, Value>> {
+        match self {
+            Value::Dict(d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub fn as_dict_mut(&mut self) -> Option<&mut BTreeMap<ByteBuf, Value>> {
+        match self {
+            Value::Dict(ref mut d) => Some(d),
+            _ => None,
+        }
+    }
+
+    pub fn is_byte_str(&self) -> bool {
+        self.as_byte_str().is_some()
+    }
+
+    pub fn is_string(&self) -> bool {
+        self.as_str().is_some()
+    }
+
+    pub fn is_u64(&self) -> bool {
+        self.as_u64().is_some()
+    }
+
+    pub fn is_i64(&self) -> bool {
+        self.as_i64().is_some()
+    }
+
+    pub fn is_array(&self) -> bool {
+        self.as_array().is_some()
+    }
+
+    pub fn is_dict(&self) -> bool {
+        self.as_dict().is_some()
+    }
 }
 
 impl<'de> Deserialize<'de> for Value {
