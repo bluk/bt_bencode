@@ -1,3 +1,5 @@
+//! Serializes Bencode data.
+
 use crate::error::{Error, Result};
 use serde::{ser, Serialize};
 
@@ -23,7 +25,7 @@ where
     Ok(())
 }
 
-/// Serializes an instance of `T` into a new `Vec` as `Bencode` data
+/// Serializes an instance of `T` into a new `Vec` as `Bencode` data.
 ///
 /// # Errors
 ///
@@ -310,8 +312,7 @@ where
 }
 
 /// A serializer for writing map data.
-///
-/// Not intended to be instantiated by crate users.
+#[doc(hidden)]
 #[derive(Debug)]
 pub struct SerializeMap<'a, W> {
     ser: &'a mut Serializer<W>,

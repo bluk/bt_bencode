@@ -1,3 +1,5 @@
+//! Possible crate errors.
+
 use serde::{de, ser};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -16,9 +18,10 @@ use core::{
     num, result,
 };
 
-/// A convenience `Result` type for this crate.
+/// Alias for a `Result` with a `bt_bencode::Error` error type.
 pub type Result<T> = result::Result<T, Error>;
 
+/// All possible crate errors.
 #[derive(Debug)]
 pub enum Error {
     Deserialize(String),

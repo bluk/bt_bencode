@@ -1,3 +1,5 @@
+//! Deserializes Bencode data.
+
 use crate::error::{Error, Result};
 use crate::read::{self, Read};
 use serde::de::{self, Expected, Unexpected};

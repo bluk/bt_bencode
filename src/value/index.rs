@@ -1,3 +1,5 @@
+//! Indexes into the `Value` type.
+
 use super::Value;
 use core::ops;
 use serde_bytes::ByteBuf;
@@ -7,6 +9,7 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
+/// Indexes into the `Value` type.
 pub trait Index {
     fn index<'a>(&self, v: &'a Value) -> Option<&'a Value>;
 

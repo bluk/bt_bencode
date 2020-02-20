@@ -1,3 +1,5 @@
+//! Serializes into a `Value`.
+
 use super::{Number, Value};
 use crate::error::{Error, Result};
 use serde::{ser, Serialize};
@@ -8,6 +10,12 @@ use alloc::{collections::BTreeMap, vec::Vec};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, vec::Vec};
 
+/// Serializes an instance of `T` into a `Value`.
+///
+/// # Errors
+///
+/// Serialization can fail if `T`'s implementation of `Serialize` decides to fail, if `T` contains
+/// unsupported types for serialization, or if `T` contains a map with non-string keys.
 #[inline]
 pub fn to_value<T>(value: &T) -> Result<Value>
 where

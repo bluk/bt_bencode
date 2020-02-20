@@ -1,3 +1,5 @@
+//! Deserializes from a `Value`.
+
 use super::{Number, Value};
 use crate::error::Error;
 use serde::de::{
@@ -11,6 +13,12 @@ use alloc::{collections::BTreeMap, vec, vec::Vec};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, vec, vec::Vec};
 
+/// Deserializes an instance of `T` from a `Value`.
+///
+/// # Errors
+///
+/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
+/// into an instance of `T`, and other IO errors.
 pub fn from_value<T>(value: Value) -> Result<T, Error>
 where
     T: DeserializeOwned,

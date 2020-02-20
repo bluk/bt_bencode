@@ -1,3 +1,5 @@
+//! Represents valid Bencode data.
+
 use crate::error::Error;
 use serde::{
     de::{Deserialize, MapAccess, SeqAccess, Visitor},
@@ -10,14 +12,16 @@ use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 
-/// A Bencoded number.
+/// Represents a valid Bencode number.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Number {
+    /// A signed integer.
     Signed(i64),
+    /// An unsigned integer.
     Unsigned(u64),
 }
 
-/// Represents valid untyped data.
+/// Represents a valid Bencode value.
 ///
 /// It is useful when it is unknown what the data may contain (e.g. when different kinds of
 /// messages can be received in a network packet).
@@ -329,7 +333,7 @@ mod de;
 mod index;
 mod ser;
 
-use index::Index;
+pub use index::Index;
 
 impl Value {
     pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
