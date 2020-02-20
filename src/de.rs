@@ -661,7 +661,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_struct() -> Result<()> {
-        #[derive(Debug, PartialEq, Eq, Deserialize)]
+        #[derive(Debug, PartialEq, Deserialize)]
         struct S {
             spam: Vec<String>,
         }

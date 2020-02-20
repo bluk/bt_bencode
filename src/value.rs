@@ -11,7 +11,7 @@ use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::
 use std::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 
 /// A Bencoded number.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Number {
     Signed(i64),
     Unsigned(u64),
@@ -21,7 +21,7 @@ pub enum Number {
 ///
 /// It is useful when it is unknown what the data may contain (e.g. when different kinds of
 /// messages can be received in a network packet).
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Value {
     /// A byte string.
     ///
