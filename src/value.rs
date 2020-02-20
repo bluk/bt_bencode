@@ -1,3 +1,4 @@
+use crate::error::Error;
 use serde::{
     de::{Deserialize, MapAccess, SeqAccess, Visitor},
     ser::Serialize,
@@ -5,9 +6,9 @@ use serde::{
 use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{collections::BTreeMap, fmt, str, string::String, vec::Vec};
+use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, fmt, str, string::String, vec::Vec};
+use std::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 
 /// A Bencoded number.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -134,6 +135,103 @@ impl Value {
 
     pub fn is_dict(&self) -> bool {
         self.as_dict().is_some()
+    }
+}
+
+impl From<i8> for Value {
+    fn from(other: i8) -> Value {
+        Value::Int(Number::Signed(other as i64))
+    }
+}
+
+impl From<i16> for Value {
+    fn from(other: i16) -> Value {
+        Value::Int(Number::Signed(other as i64))
+    }
+}
+
+impl From<i32> for Value {
+    fn from(other: i32) -> Value {
+        Value::Int(Number::Signed(other as i64))
+    }
+}
+
+impl From<i64> for Value {
+    fn from(other: i64) -> Value {
+        Value::Int(Number::Signed(other))
+    }
+}
+
+impl From<isize> for Value {
+    fn from(other: isize) -> Value {
+        Value::Int(Number::Signed(other as i64))
+    }
+}
+
+impl From<u8> for Value {
+    fn from(other: u8) -> Value {
+        Value::Int(Number::Unsigned(other as u64))
+    }
+}
+
+impl From<u16> for Value {
+    fn from(other: u16) -> Value {
+        Value::Int(Number::Unsigned(other as u64))
+    }
+}
+
+impl From<u32> for Value {
+    fn from(other: u32) -> Value {
+        Value::Int(Number::Unsigned(other as u64))
+    }
+}
+
+impl From<u64> for Value {
+    fn from(other: u64) -> Value {
+        Value::Int(Number::Unsigned(other))
+    }
+}
+
+impl From<usize> for Value {
+    fn from(other: usize) -> Value {
+        Value::Int(Number::Unsigned(other as u64))
+    }
+}
+
+impl FromStr for Value {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Value::ByteStr(ByteBuf::from(String::from(s))))
+    }
+}
+
+impl<'a> From<&'a str> for Value {
+    fn from(other: &'a str) -> Value {
+        Value::ByteStr(ByteBuf::from(other))
+    }
+}
+
+impl From<String> for Value {
+    fn from(other: String) -> Value {
+        Value::ByteStr(ByteBuf::from(other))
+    }
+}
+
+impl<V: Into<Value>> From<Vec<V>> for Value {
+    fn from(other: Vec<V>) -> Value {
+        Value::List(other.into_iter().map(|v| v.into()).collect())
+    }
+}
+
+impl<K: Into<ByteBuf>, V: Into<Value>> From<BTreeMap<K, V>> for Value {
+    fn from(other: BTreeMap<K, V>) -> Value {
+        Value::Dict(
+            other
+                .into_iter()
+                .map(|(k, v)| (k.into(), v.into()))
+                .collect(),
+        )
     }
 }
 
