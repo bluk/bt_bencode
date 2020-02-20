@@ -326,7 +326,20 @@ impl Serialize for Value {
 }
 
 mod de;
+mod index;
 mod ser;
+
+use index::Index;
+
+impl Value {
+    pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
+        index.index(self)
+    }
+
+    pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut Value> {
+        index.index_mut(self)
+    }
+}
 
 pub use de::from_value;
 pub use ser::to_value;
