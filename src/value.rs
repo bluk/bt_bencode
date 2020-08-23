@@ -69,6 +69,13 @@ impl Value {
         }
     }
 
+    pub fn as_number(&self) -> Option<&Number> {
+        match self {
+            Value::Int(n) => Some(n),
+            _ => None,
+        }
+    }
+
     pub fn as_u64(&self) -> Option<u64> {
         match self {
             Value::Int(n) => match n {
