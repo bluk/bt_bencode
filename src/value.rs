@@ -21,6 +21,66 @@ pub enum Number {
     Unsigned(u64),
 }
 
+impl From<isize> for Number {
+    fn from(value: isize) -> Self {
+        Number::Signed(value as i64)
+    }
+}
+
+impl From<i64> for Number {
+    fn from(value: i64) -> Self {
+        Number::Signed(value)
+    }
+}
+
+impl From<i32> for Number {
+    fn from(value: i32) -> Self {
+        Number::Signed(i64::from(value))
+    }
+}
+
+impl From<i16> for Number {
+    fn from(value: i16) -> Self {
+        Number::Signed(i64::from(value))
+    }
+}
+
+impl From<i8> for Number {
+    fn from(value: i8) -> Self {
+        Number::Signed(i64::from(value))
+    }
+}
+
+impl From<usize> for Number {
+    fn from(value: usize) -> Self {
+        Number::Unsigned(value as u64)
+    }
+}
+
+impl From<u64> for Number {
+    fn from(value: u64) -> Self {
+        Number::Unsigned(value)
+    }
+}
+
+impl From<u32> for Number {
+    fn from(value: u32) -> Self {
+        Number::Unsigned(u64::from(value))
+    }
+}
+
+impl From<u16> for Number {
+    fn from(value: u16) -> Self {
+        Number::Unsigned(u64::from(value))
+    }
+}
+
+impl From<u8> for Number {
+    fn from(value: u8) -> Self {
+        Number::Unsigned(u64::from(value))
+    }
+}
+
 /// Represents a valid Bencode value.
 ///
 /// It is useful when it is unknown what the data may contain (e.g. when different kinds of
@@ -151,61 +211,61 @@ impl Value {
 
 impl From<i8> for Value {
     fn from(other: i8) -> Value {
-        Value::Int(Number::Signed(other as i64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<i16> for Value {
     fn from(other: i16) -> Value {
-        Value::Int(Number::Signed(other as i64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<i32> for Value {
     fn from(other: i32) -> Value {
-        Value::Int(Number::Signed(other as i64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<i64> for Value {
     fn from(other: i64) -> Value {
-        Value::Int(Number::Signed(other))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<isize> for Value {
     fn from(other: isize) -> Value {
-        Value::Int(Number::Signed(other as i64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<u8> for Value {
     fn from(other: u8) -> Value {
-        Value::Int(Number::Unsigned(other as u64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<u16> for Value {
     fn from(other: u16) -> Value {
-        Value::Int(Number::Unsigned(other as u64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<u32> for Value {
     fn from(other: u32) -> Value {
-        Value::Int(Number::Unsigned(other as u64))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<u64> for Value {
     fn from(other: u64) -> Value {
-        Value::Int(Number::Unsigned(other))
+        Value::Int(Number::from(other))
     }
 }
 
 impl From<usize> for Value {
     fn from(other: usize) -> Value {
-        Value::Int(Number::Unsigned(other as u64))
+        Value::Int(Number::from(other))
     }
 }
 
