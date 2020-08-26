@@ -12,7 +12,7 @@
 //! # use bt_bencode::Error;
 //! # use std::collections::BTreeMap;
 //! #
-//! # fn try_main() -> Result<(), Error> {
+//! # fn main() -> Result<(), Error> {
 //! use serde_bytes::ByteBuf;
 //! use serde_derive::Deserialize;
 //!
@@ -30,9 +30,6 @@
 //! assert_eq!(info.url, "https://example.com/");
 //! #   Ok(())
 //! # }
-//! # fn main() {
-//! #   try_main().unwrap();
-//! # }
 //! ```
 //!
 //! An example deserializing from an unknown slice of bytes, and then into a custom type.
@@ -41,7 +38,7 @@
 //! # use bt_bencode::Error;
 //! # use std::collections::BTreeMap;
 //! #
-//! # fn try_main() -> Result<(), Error> {
+//! # fn main() -> Result<(), Error> {
 //! use bt_bencode::Value;
 //! use serde_bytes::ByteBuf;
 //! use serde_derive::{Serialize, Deserialize};
@@ -63,9 +60,6 @@
 //! let info: Info = bt_bencode::from_value(value)?;
 //! assert_eq!(info.url, "https://example.com/");
 //! #   Ok(())
-//! # }
-//! # fn main() {
-//! #   try_main().unwrap();
 //! # }
 //! ```
 //!
