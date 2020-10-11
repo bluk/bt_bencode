@@ -4,7 +4,10 @@
 
 ### Added
 
-* `Read` trait and helper implementations are made public.
+* `Read` trait and helper implementations `IoRead` and `SliceRead` are made public.
+* Add `Value` `as_number()`.
+* Add multiple `From` implementations for all the common primitive signed and
+  unsigned integers to `Number`.
 
 ## v0.2.0
 
