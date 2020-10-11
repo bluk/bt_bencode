@@ -77,7 +77,7 @@ extern crate serde;
 
 mod de;
 mod error;
-mod read;
+pub mod read;
 #[cfg(feature = "std")]
 mod ser;
 pub mod value;

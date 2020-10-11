@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.3.0
+
+### Added
+
+* `Read` trait and helper implementations are made public.
+
 ## v0.2.0
 
 ### Added
