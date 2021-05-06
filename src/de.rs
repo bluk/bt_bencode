@@ -181,6 +181,97 @@ where
         }
         Ok(buf)
     }
+
+    fn capture_byte_string_len(&mut self, buf: &mut Vec<u8>) -> Result<usize> {
+        let mut len_buf = Vec::new();
+        loop {
+            match self.parse_next()? {
+                b':' => {
+                    let len = String::from_utf8(len_buf.clone())?.parse()?;
+                    buf.extend(len_buf);
+                    buf.push(b':');
+                    return Ok(len);
+                }
+                n @ b'0'..=b'9' => len_buf.push(n),
+                _ => return Err(Error::InvalidByteStrLen),
+            }
+        }
+    }
+
+    fn capture_byte_string(&mut self, buf: &mut Vec<u8>) -> Result<()> {
+        let len = self.capture_byte_string_len(buf)?;
+        buf.reserve(len);
+        for _ in 0..len {
+            buf.push(self.parse_next()?);
+        }
+        Ok(())
+    }
+
+    fn capture_integer(&mut self, buf: &mut Vec<u8>) -> Result<()> {
+        buf.push(self.parse_next()?);
+
+        match self.parse_peek()? {
+            b'-' => buf.push(self.parse_next()?),
+            b'0'..=b'9' => {}
+            _ => return Err(Error::InvalidInteger),
+        }
+
+        loop {
+            match self.parse_next()? {
+                b'e' => {
+                    buf.push(b'e');
+                    return Ok(());
+                }
+                n @ b'0'..=b'9' => buf.push(n),
+                _ => return Err(Error::InvalidInteger),
+            }
+        }
+    }
+
+    fn capture_list(&mut self, buf: &mut Vec<u8>) -> Result<()> {
+        buf.push(self.parse_next()?);
+
+        loop {
+            match self.parse_peek()? {
+                b'e' => {
+                    buf.push(self.parse_next()?);
+                    return Ok(());
+                }
+                b'0'..=b'9' => self.capture_byte_string(buf)?,
+                b'i' => self.capture_integer(buf)?,
+                b'l' => self.capture_list(buf)?,
+                b'd' => self.capture_dict(buf)?,
+                _ => return Err(Error::InvalidDict),
+            }
+        }
+    }
+
+    fn capture_dict(&mut self, buf: &mut Vec<u8>) -> Result<()> {
+        buf.push(self.parse_next()?);
+
+        loop {
+            match self.parse_peek()? {
+                b'0'..=b'9' => self.capture_byte_string(buf)?,
+                b'e' => {
+                    buf.push(self.parse_next()?);
+                    return Ok(());
+                }
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+
+            match self.parse_peek()? {
+                b'0'..=b'9' => self.capture_byte_string(buf)?,
+                b'i' => self.capture_integer(buf)?,
+                b'l' => self.capture_list(buf)?,
+                b'd' => self.capture_dict(buf)?,
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+        }
+    }
 }
 
 #[cfg(feature = "std")]
@@ -364,6 +455,21 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'0'..=b'9' => {
                 let bytes = self.parse_bytes()?;
+                visitor.visit_byte_buf(bytes)
+            }
+            b'i' => {
+                let mut bytes = Vec::new();
+                self.capture_integer(&mut bytes)?;
+                visitor.visit_byte_buf(bytes)
+            }
+            b'l' => {
+                let mut bytes = Vec::new();
+                self.capture_list(&mut bytes)?;
+                visitor.visit_byte_buf(bytes)
+            }
+            b'd' => {
+                let mut bytes = Vec::new();
+                self.capture_dict(&mut bytes)?;
                 visitor.visit_byte_buf(bytes)
             }
             _ => Err(self.unexpected_type_err(&visitor)?),
@@ -586,6 +692,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_bytes::ByteBuf;
     use serde_derive::Deserialize;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -673,6 +780,58 @@ mod tests {
         let expected = S {
             spam: vec!["a".into(), "b".into()],
         };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_integer_as_raw_bytes() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S(ByteBuf);
+
+        let input = "i-1234e";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_list_as_raw_bytes() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S(ByteBuf);
+
+        let input = "l4:spam4:eggse";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_map_value_as_raw_bytes() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            spam: ByteBuf,
+        }
+
+        let input = "d4:spamd1:a1:bee";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S {
+            spam: ByteBuf::from(b"d1:a1:be".to_vec()),
+        };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_map_as_raw_bytes() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S(ByteBuf);
+
+        let input = "d4:spamd1:a1:bee";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
         assert_eq!(s, expected);
         Ok(())
     }
