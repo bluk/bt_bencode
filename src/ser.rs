@@ -372,10 +372,7 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let key = self
-            .current_key
-            .take()
-            .ok_or_else(|| Error::ValueWithoutKey)?;
+        let key = self.current_key.take().ok_or(Error::ValueWithoutKey)?;
         let buf: Vec<u8> = Vec::new();
         let mut ser = Serializer::new(buf);
         value.serialize(&mut ser)?;

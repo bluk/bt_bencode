@@ -66,7 +66,7 @@ where
     /// An error is returned if there are unconsumed bytes in the readable source.
     pub fn end(&mut self) -> Result<()> {
         match self.read.peek() {
-            Some(r) => r.and_then(|_| Err(Error::TrailingData)),
+            Some(r) => r.and(Err(Error::TrailingData)),
             None => Ok(()),
         }
     }

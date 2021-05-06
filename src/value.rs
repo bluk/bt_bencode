@@ -138,20 +138,14 @@ impl Value {
 
     pub fn as_u64(&self) -> Option<u64> {
         match self {
-            Value::Int(n) => match n {
-                Number::Unsigned(n) => Some(*n),
-                _ => None,
-            },
+            Value::Int(Number::Unsigned(n)) => Some(*n),
             _ => None,
         }
     }
 
     pub fn as_i64(&self) -> Option<i64> {
         match self {
-            Value::Int(n) => match n {
-                Number::Signed(n) => Some(*n),
-                _ => None,
-            },
+            Value::Int(Number::Signed(n)) => Some(*n),
             _ => None,
         }
     }

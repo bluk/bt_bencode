@@ -276,10 +276,7 @@ impl ser::SerializeMap for SerializeDict {
     where
         T: ?Sized + Serialize,
     {
-        let key = self
-            .current_key
-            .take()
-            .ok_or_else(|| Error::ValueWithoutKey)?;
+        let key = self.current_key.take().ok_or(Error::ValueWithoutKey)?;
         let value = to_value(value)?;
         self.dict.insert(key, value);
         Ok(())
