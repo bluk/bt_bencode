@@ -601,10 +601,7 @@ mod tests {
 
     #[test]
     fn test_serialize_bool() {
-        assert!(match to_vec(&true) {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(to_vec(&true), Err(Error::UnsupportedType)));
     }
 
     #[test]
@@ -686,19 +683,13 @@ mod tests {
     #[test]
     fn test_serialize_f32() {
         let value: f32 = 2.0;
-        assert!(match to_vec(&value) {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(to_vec(&value), Err(Error::UnsupportedType)));
     }
 
     #[test]
     fn test_serialize_f64() {
         let value: f64 = 2.0;
-        assert!(match to_vec(&value) {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(to_vec(&value), Err(Error::UnsupportedType)));
     }
 
     #[test]
@@ -731,19 +722,13 @@ mod tests {
     #[test]
     fn test_serialize_unit() {
         let value = ();
-        assert!(match to_vec(&value) {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(to_vec(&value), Err(Error::UnsupportedType)));
     }
 
     #[test]
     fn test_serialize_none() {
         let value: Option<i64> = None;
-        assert!(match to_vec(&value) {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(to_vec(&value), Err(Error::UnsupportedType)));
     }
 
     #[test]
@@ -757,12 +742,10 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_unit_struct("Nothing") {
-                Err(Error::UnsupportedType) => true,
-                _ => false,
-            }
-        );
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_unit_struct("Nothing"),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -770,12 +753,10 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(match super::Serializer::new(&mut writer)
-            .serialize_unit_variant("Nothing", 0, "Case")
-        {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case"),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -783,12 +764,9 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_newtype_struct("Nothing", &2) {
-                Err(_) => false,
-                Ok(_) => true,
-            }
-        );
+        assert!(super::Serializer::new(&mut writer)
+            .serialize_newtype_struct("Nothing", &2)
+            .is_ok());
         assert_eq!(String::from_utf8(writer).unwrap(), "i2e");
     }
 
@@ -797,12 +775,10 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(match super::Serializer::new(&mut writer)
-            .serialize_unit_variant("Nothing", 0, "Case")
-        {
-            Err(Error::UnsupportedType) => true,
-            _ => false,
-        });
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case"),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -825,12 +801,10 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_tuple(0) {
-                Err(Error::UnsupportedType) => true,
-                _ => false,
-            }
-        );
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_tuple(0),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -838,12 +812,10 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_tuple_struct("Tuple Struct", 2) {
-                Err(Error::UnsupportedType) => true,
-                _ => false,
-            }
-        );
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_tuple_struct("Tuple Struct", 2),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -851,17 +823,15 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_tuple_variant(
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_tuple_variant(
                 "Tuple Variant",
                 2,
                 "Case",
                 1
-            ) {
-                Err(Error::UnsupportedType) => true,
-                _ => false,
-            }
-        );
+            ),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
@@ -869,17 +839,15 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert!(
-            match super::Serializer::new(&mut writer).serialize_struct_variant(
+        assert!(matches!(
+            super::Serializer::new(&mut writer).serialize_struct_variant(
                 "Struct Variant",
                 2,
                 "Case",
                 1
-            ) {
-                Err(Error::UnsupportedType) => true,
-                _ => false,
-            }
-        );
+            ),
+            Err(Error::UnsupportedType)
+        ));
     }
 
     #[test]
