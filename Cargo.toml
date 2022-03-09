@@ -1,6 +1,6 @@
 [package]
 name = "bt_bencode"
-version = "0.4.0"
+version = "0.5.0"
 license = "MIT OR Apache-2.0"
 authors = ["Bryant Luk <code@bryantluk.com>"]
 edition = "2018"
@@ -18,7 +18,7 @@ include = [
 [dependencies]
 serde = {version = "1", default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
-itoa = {version = "0.4", default-features = false }
+itoa = {version = "1.0.1", default-features = false }
 
 [dev-dependencies]
 serde_derive = "1"
@@ -26,6 +26,6 @@ serde_derive = "1"
 [features]
 default = ["std"]
 
-std = ["serde/std", "serde_bytes/std", "itoa/std"]
+std = ["serde/std", "serde_bytes/std"]
 
 alloc = ["serde/alloc", "serde_bytes/alloc"]

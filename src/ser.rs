@@ -108,8 +108,8 @@ where
     #[inline]
     fn serialize_i64(self, value: i64) -> Result<()> {
         self.writer.write_all(b"i").map_err(Error::IoError)?;
-        itoa::write(&mut self.writer, value)
-            .map(drop)
+        self.writer
+            .write_all(itoa::Buffer::new().format(value).as_bytes())
             .map_err(Error::IoError)?;
         self.writer.write_all(b"e").map_err(Error::IoError)?;
         Ok(())
@@ -133,8 +133,8 @@ where
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<()> {
         self.writer.write_all(b"i").map_err(Error::IoError)?;
-        itoa::write(&mut self.writer, value)
-            .map(drop)
+        self.writer
+            .write_all(itoa::Buffer::new().format(value).as_bytes())
             .map_err(Error::IoError)?;
         self.writer.write_all(b"e").map_err(Error::IoError)?;
         Ok(())
@@ -158,8 +158,8 @@ where
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
-        itoa::write(&mut self.writer, value.len())
-            .map(drop)
+        self.writer
+            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())
             .map_err(Error::IoError)?;
         self.writer.write_all(b":").map_err(Error::IoError)?;
         self.writer
@@ -169,8 +169,8 @@ where
 
     #[inline]
     fn serialize_bytes(self, value: &[u8]) -> Result<()> {
-        itoa::write(&mut self.writer, value.len())
-            .map(drop)
+        self.writer
+            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())
             .map_err(Error::IoError)?;
         self.writer.write_all(b":").map_err(Error::IoError)?;
         self.writer.write_all(value).map_err(Error::IoError)

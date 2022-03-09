@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.5.0
+
+### Updated
+
+* Update to `itoa` version `1.0.1`.
+
 ## v0.4.0
 
 ### Added
