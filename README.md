@@ -1,5 +1,7 @@
 # BtBencode
 
+[Latest Docs.rs][docs_rs_bt_bencode]
+
 BtBencode is a library which can help with [Bencode][wikipedia_bencode]
 encoding/decoding.  Bencode is primarily used in [BitTorrent][bep_0003] related
 applications.
@@ -29,3 +31,4 @@ dual licensed as above, without any additional terms or conditions.
 [wikipedia_bencode]: https://en.wikipedia.org/wiki/Bencode
 [bep_0003]: http://www.bittorrent.org/beps/bep_0003.html
 [serde]: https://serde.rs
+[docs_rs_bt_bencode]: https://docs.rs/bt_bencode/latest/bt_bencode/
