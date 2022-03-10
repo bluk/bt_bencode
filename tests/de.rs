@@ -2,7 +2,6 @@
 extern crate serde_derive;
 
 use bt_bencode::{Error, Value};
-use serde_bytes::ByteBuf;
 
 #[derive(Debug, Deserialize, Clone, Eq, Hash, PartialEq)]
 struct TorrentFile {
@@ -24,13 +23,10 @@ fn test_deserialize_torrent_file_via_value() -> Result<(), Error> {
     let torrent_bytes = include_bytes!("ubuntu-18.04.3-live-server-amd64.iso.torrent");
     let decoded_value: Value = bt_bencode::from_slice(&torrent_bytes[..])?;
 
-    let announce = match decoded_value {
-        Value::Dict(dict) => match dict.get(&ByteBuf::from(String::from("announce"))) {
-            Some(Value::ByteStr(s)) => Some(s.clone().into_vec()),
-            _ => None,
-        },
-        _ => None,
-    };
+    let announce = decoded_value
+        .get("announce")
+        .and_then(|v| v.as_byte_str())
+        .map(|v| v.to_vec());
 
     assert_eq!(
         announce,
