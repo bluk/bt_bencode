@@ -12,7 +12,7 @@ It uses the [Serde][serde] library to serialize and deserialize Bencode data.
 
 ```toml
 [dependencies]
-bt_bencode = "0.5.0"
+bt_bencode = "0.5.1"
 ```
 
 ## License

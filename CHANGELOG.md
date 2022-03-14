@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v0.5.1
+
+### Updated
+
+* Use `Bytes` for `Values::Dict` index access instead of allocating a `ByteBuf`.
+
 ## v0.5.0
 
 ### Updated
