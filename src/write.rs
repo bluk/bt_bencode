@@ -6,8 +6,6 @@ use crate::error::Error;
 #[cfg(feature = "std")]
 use std::io;
 
-use serde_bytes::ByteBuf;
-
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
@@ -42,7 +40,7 @@ where
 {
     #[inline]
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
-        self.writer.write_all(buf).map_err(|e| Error::IoError(e))
+        self.writer.write_all(buf).map_err(Error::IoError)
     }
 }
 
