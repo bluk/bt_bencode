@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v0.6.0
+
+### Added
+
+* Allow serialization when no_std.
+
+  Adds `Write` trait and implementations.
+
+  Thanks [@bheesham](https://github.com/bheesham).
+
 ## v0.5.1
 
 ### Updated

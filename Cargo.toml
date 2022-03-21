@@ -1,11 +1,12 @@
 [package]
 name = "bt_bencode"
-version = "0.5.1"
+version = "0.6.0"
 license = "MIT OR Apache-2.0"
 authors = ["Bryant Luk <code@bryantluk.com>"]
 edition = "2018"
 description = "A Bencode encoding/decoding implementation."
 repository = "https://github.com/bluk/bt_bencode"
+documentation = "https://docs.rs/bt_bencode/"
 readme = "README.md"
 include = [
   "src/**/*.rs",
@@ -14,6 +15,8 @@ include = [
   "LICENSE-APACHE",
   "LICENSE-MIT",
 ]
+keywords = ["bencode", "bittorrent", "torrent", "serialization", "serde"]
+categories = ["encoding", "no-std"]
 
 [dependencies]
 serde = {version = "1", default-features = false }
