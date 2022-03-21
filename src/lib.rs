@@ -77,8 +77,10 @@ extern crate serde;
 
 mod de;
 mod error;
+
 pub mod read;
-#[cfg(feature = "std")]
+pub mod write;
+
 mod ser;
 pub mod value;
 
@@ -91,7 +93,10 @@ pub use value::{from_value, to_value, Value};
 
 #[doc(inline)]
 #[cfg(feature = "std")]
-pub use ser::{to_vec, to_writer, Serializer};
+pub use ser::to_writer;
+
+#[doc(inline)]
+pub use ser::{to_vec, Serializer};
 
 #[doc(inline)]
 #[cfg(feature = "std")]
