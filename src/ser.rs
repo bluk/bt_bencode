@@ -9,7 +9,10 @@ use alloc::{collections::BTreeMap, vec::Vec};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, io, vec::Vec};
 
-use crate::write::{self, Write};
+#[cfg(feature = "std")]
+use crate::write;
+
+use crate::write::Write;
 
 /// Serializes an instance of `T` into the writer `W` as `Bencode` data.
 ///
@@ -590,7 +593,7 @@ mod tests {
     use serde_bytes::ByteBuf;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::string::String;
+    use alloc::{format, string::String, vec};
     #[cfg(feature = "std")]
     use std::string::String;
 
