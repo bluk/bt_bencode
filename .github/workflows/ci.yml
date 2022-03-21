@@ -6,8 +6,8 @@ on:
   pull_request:
 
 jobs:
-  check:
-    name: Check
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -15,29 +15,17 @@ jobs:
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
         with:
+          profile: minimal
           toolchain: stable
           override: true
       - name: Rust Version
         run: rustc --version
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-      - name: Cache cargo build
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+      - name: Run cargo build (--all-features)
+        run: cargo build --all-features --release
+      - name: Run cargo build (--features alloc)
+        run: cargo build --no-default-features --release --features alloc
+      - name: Run cargo build (--features std)
+        run: cargo test --no-default-features --release --features std
   test:
     name: Test
     runs-on: ubuntu-latest
@@ -66,8 +54,16 @@ jobs:
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}
-      - name: Run cargo test
+      - name: Run cargo check (--all-features)
+        run: cargo check --all-features
+      - name: Run cargo test (default)
         run: cargo test
+      - name: Run cargo test (--all-features)
+        run: cargo test --all-features
+      - name: Run cargo test (--features alloc)
+        run: cargo test --no-default-features --features alloc
+      - name: Run cargo test (--features std)
+        run: cargo test --no-default-features --features std
   rustfmt:
     name: Format
     runs-on: ubuntu-latest
