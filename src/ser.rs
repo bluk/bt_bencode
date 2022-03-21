@@ -5,8 +5,11 @@ use serde::{ser, Serialize};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{collections::BTreeMap, vec::Vec};
+
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, io, vec::Vec};
+
+use crate::write::{self, Write};
 
 /// Serializes an instance of `T` into the writer `W` as `Bencode` data.
 ///
@@ -14,13 +17,14 @@ use std::{collections::BTreeMap, io, vec::Vec};
 ///
 /// Serialization can fail if `T`'s implementation of `Serialize` decides to fail, if `T` contains
 /// unsupported types for serialization, or if `T` contains a map with non-string keys.
+#[cfg(feature = "std")]
 #[inline]
 pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
 where
     W: io::Write,
     T: ?Sized + Serialize,
 {
-    let mut ser = Serializer::new(writer);
+    let mut ser = Serializer::new(write::IoWrite::new(writer));
     value.serialize(&mut ser)?;
     Ok(())
 }
@@ -36,8 +40,9 @@ pub fn to_vec<T>(value: &T) -> Result<Vec<u8>>
 where
     T: ?Sized + Serialize,
 {
-    let mut writer = Vec::with_capacity(128);
-    to_writer(&mut writer, value)?;
+    let mut writer = Vec::new();
+    let mut ser = Serializer::new(&mut writer);
+    value.serialize(&mut ser)?;
     Ok(writer)
 }
 
@@ -49,7 +54,7 @@ pub struct Serializer<W> {
 
 impl<W> Serializer<W>
 where
-    W: io::Write,
+    W: Write,
 {
     /// Constructs a Serializer with an `io::Write` target.
     pub fn new(writer: W) -> Self {
@@ -59,7 +64,7 @@ where
 
 impl<W> Serializer<W>
 where
-    W: io::Write,
+    W: Write,
 {
     /// Returns the inner writer.
     ///
@@ -72,7 +77,7 @@ where
 
 impl<'a, W> ser::Serializer for &'a mut Serializer<W>
 where
-    W: io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -107,11 +112,10 @@ where
 
     #[inline]
     fn serialize_i64(self, value: i64) -> Result<()> {
-        self.writer.write_all(b"i").map_err(Error::IoError)?;
+        self.writer.write_all(b"i")?;
         self.writer
-            .write_all(itoa::Buffer::new().format(value).as_bytes())
-            .map_err(Error::IoError)?;
-        self.writer.write_all(b"e").map_err(Error::IoError)?;
+            .write_all(itoa::Buffer::new().format(value).as_bytes())?;
+        self.writer.write_all(b"e")?;
         Ok(())
     }
 
@@ -132,11 +136,10 @@ where
 
     #[inline]
     fn serialize_u64(self, value: u64) -> Result<()> {
-        self.writer.write_all(b"i").map_err(Error::IoError)?;
+        self.writer.write_all(b"i")?;
         self.writer
-            .write_all(itoa::Buffer::new().format(value).as_bytes())
-            .map_err(Error::IoError)?;
-        self.writer.write_all(b"e").map_err(Error::IoError)?;
+            .write_all(itoa::Buffer::new().format(value).as_bytes())?;
+        self.writer.write_all(b"e")?;
         Ok(())
     }
 
@@ -159,21 +162,17 @@ where
     #[inline]
     fn serialize_str(self, value: &str) -> Result<()> {
         self.writer
-            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())
-            .map_err(Error::IoError)?;
-        self.writer.write_all(b":").map_err(Error::IoError)?;
-        self.writer
-            .write_all(value.as_bytes())
-            .map_err(Error::IoError)
+            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())?;
+        self.writer.write_all(b":")?;
+        self.writer.write_all(value.as_bytes())
     }
 
     #[inline]
     fn serialize_bytes(self, value: &[u8]) -> Result<()> {
         self.writer
-            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())
-            .map_err(Error::IoError)?;
-        self.writer.write_all(b":").map_err(Error::IoError)?;
-        self.writer.write_all(value).map_err(Error::IoError)
+            .write_all(itoa::Buffer::new().format(value.len()).as_bytes())?;
+        self.writer.write_all(b":")?;
+        self.writer.write_all(value)
     }
 
     #[inline]
@@ -233,7 +232,7 @@ where
 
     #[inline]
     fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
-        self.writer.write_all(b"l").map_err(Error::IoError)?;
+        self.writer.write_all(b"l")?;
         Ok(self)
     }
 
@@ -264,7 +263,7 @@ where
 
     #[inline]
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        self.writer.write_all(b"d").map_err(Error::IoError)?;
+        self.writer.write_all(b"d")?;
         Ok(SerializeMap::new(self))
     }
 
@@ -291,7 +290,7 @@ where
 
 impl<'a, W> ser::SerializeSeq for &'a mut Serializer<W>
 where
-    W: io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -306,7 +305,7 @@ where
 
     #[inline]
     fn end(self) -> Result<()> {
-        self.writer.write_all(b"e").map_err(Error::IoError)?;
+        self.writer.write_all(b"e")?;
         Ok(())
     }
 }
@@ -322,7 +321,7 @@ pub struct SerializeMap<'a, W> {
 
 impl<'a, W> SerializeMap<'a, W>
 where
-    W: io::Write,
+    W: Write,
 {
     #[inline]
     fn new(ser: &'a mut Serializer<W>) -> Self {
@@ -341,7 +340,7 @@ where
 
         for (k, v) in &self.entries {
             ser::Serializer::serialize_bytes(&mut *self.ser, k.as_ref())?;
-            self.ser.writer.write_all(v).map_err(Error::IoError)?;
+            self.ser.writer.write_all(v)?;
         }
 
         Ok(())
@@ -350,7 +349,7 @@ where
 
 impl<'a, W> ser::SerializeMap for SerializeMap<'a, W>
 where
-    W: io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -383,14 +382,14 @@ where
     #[inline]
     fn end(mut self) -> Result<()> {
         self.end_map()?;
-        self.ser.writer.write_all(b"e").map_err(Error::IoError)?;
+        self.ser.writer.write_all(b"e")?;
         Ok(())
     }
 }
 
 impl<'a, W> ser::SerializeStruct for SerializeMap<'a, W>
 where
-    W: io::Write,
+    W: Write,
 {
     type Ok = ();
     type Error = Error;
@@ -412,7 +411,7 @@ where
     #[inline]
     fn end(mut self) -> Result<()> {
         self.end_map()?;
-        self.ser.writer.write_all(b"e").map_err(Error::IoError)?;
+        self.ser.writer.write_all(b"e")?;
         Ok(())
     }
 }
@@ -482,18 +481,14 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
     }
 
     fn serialize_str(self, value: &str) -> Result<Vec<u8>> {
-        use std::io::Write;
-
         let mut buf: Vec<u8> = Vec::with_capacity(value.len());
-        buf.write_all(value.as_bytes()).map_err(Error::IoError)?;
+        buf.extend_from_slice(value.as_bytes());
         Ok(buf)
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Vec<u8>> {
-        use std::io::Write;
-
         let mut buf: Vec<u8> = Vec::with_capacity(value.len());
-        buf.write_all(value).map_err(Error::IoError)?;
+        buf.extend_from_slice(value);
         Ok(buf)
     }
 
@@ -764,9 +759,11 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
+
         assert!(super::Serializer::new(&mut writer)
             .serialize_newtype_struct("Nothing", &2)
             .is_ok());
+
         assert_eq!(String::from_utf8(writer).unwrap(), "i2e");
     }
 
