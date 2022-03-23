@@ -1,7 +1,7 @@
-#[macro_use]
-extern crate serde_derive;
-
 use bt_bencode::{Error, Value};
+use serde_derive::Deserialize;
+
+static TORRENT_BYTES: &[u8] = include_bytes!("ubuntu-20.04.4-live-server-amd64.iso.torrent");
 
 #[derive(Debug, Deserialize, Clone, Eq, Hash, PartialEq)]
 struct TorrentFile {
@@ -10,8 +10,7 @@ struct TorrentFile {
 
 #[test]
 fn test_deserialize_torrent_file_via_type() -> Result<(), Error> {
-    let torrent_bytes = include_bytes!("ubuntu-18.04.3-live-server-amd64.iso.torrent");
-    let torrent_file: TorrentFile = bt_bencode::from_slice(&torrent_bytes[..])?;
+    let torrent_file: TorrentFile = bt_bencode::from_slice(TORRENT_BYTES)?;
 
     assert_eq!(torrent_file.announce, "https://torrent.ubuntu.com/announce");
 
@@ -20,8 +19,7 @@ fn test_deserialize_torrent_file_via_type() -> Result<(), Error> {
 
 #[test]
 fn test_deserialize_torrent_file_via_value() -> Result<(), Error> {
-    let torrent_bytes = include_bytes!("ubuntu-18.04.3-live-server-amd64.iso.torrent");
-    let decoded_value: Value = bt_bencode::from_slice(&torrent_bytes[..])?;
+    let decoded_value: Value = bt_bencode::from_slice(TORRENT_BYTES)?;
 
     let announce = decoded_value
         .get("announce")
@@ -38,12 +36,63 @@ fn test_deserialize_torrent_file_via_value() -> Result<(), Error> {
 
 #[test]
 fn test_deserialize_torrent_file_via_value_index() -> Result<(), Error> {
-    let torrent_bytes = include_bytes!("ubuntu-18.04.3-live-server-amd64.iso.torrent");
-    let decoded_value: Value = bt_bencode::from_slice(&torrent_bytes[..])?;
+    let decoded_value: Value = bt_bencode::from_slice(TORRENT_BYTES)?;
 
     let announce = decoded_value["announce"].as_str();
 
     assert_eq!(announce, Some("https://torrent.ubuntu.com/announce"));
+
+    Ok(())
+}
+
+#[test]
+fn test_deserialize_info_hash() -> Result<(), Error> {
+    use sha1::Digest;
+
+    #[derive(Deserialize)]
+    struct Metainfo {
+        info: serde_bytes::ByteBuf,
+    }
+
+    let metainfo: Metainfo = bt_bencode::from_slice(TORRENT_BYTES)?;
+
+    let mut hasher = sha1::Sha1::new();
+    hasher.update(&metainfo.info);
+    let orig_info_hash = hasher.finalize();
+
+    assert_eq!(
+        orig_info_hash.as_slice(),
+        hex_literal::hex!("b44a0e20fa5b7cecb77156333b4268dfd7c30afb")
+    );
+
+    let info: Value = bt_bencode::from_slice(&metainfo.info).unwrap();
+
+    // Need to verify the value is actually a dictionary. The `ByteBuf` could have been any value.
+    assert!(info.is_dict());
+
+    // Verify that a round-trip decoding and encoding produces the same info hash.
+    // The re-encoding ensures that the original data was encoded correctly
+    // according to bencode rules (ordering of keys, no leading zeros, etc.)
+    let re_encoded_bytes: Vec<u8> = bt_bencode::to_vec(&info).unwrap();
+    let mut hasher = sha1::Sha1::new();
+    hasher.update(&re_encoded_bytes);
+    let re_encoded_info_hash = hasher.finalize();
+    assert_eq!(orig_info_hash, re_encoded_info_hash);
+
+    assert_eq!(
+        info.get("piece length").and_then(|v| v.as_u64()),
+        Some(262_144)
+    );
+    assert_eq!(
+        info.get("pieces")
+            .and_then(|v| v.as_byte_str())
+            .map(|v| v.len()),
+        Some(101_600)
+    );
+    assert_eq!(
+        info.get("length").and_then(|v| v.as_u64()),
+        Some(1_331_691_520)
+    );
 
     Ok(())
 }

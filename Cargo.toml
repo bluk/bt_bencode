@@ -25,6 +25,8 @@ itoa = {version = "1.0.1", default-features = false }
 
 [dev-dependencies]
 serde_derive = "1"
+sha1 = "0.10.1"
+hex-literal = "0.3.4"
 
 [features]
 default = ["std"]
