@@ -19,14 +19,11 @@ bt_bencode = "0.6.0"
 
 ## Examples
 
-An example serializing from a standard Rust collection type into a custom type:
+An example serializing a standard Rust collection type and then deserializing
+into a custom type:
 
 ```rust
-# use bt_bencode::Error;
-# use std::collections::BTreeMap;
-#
-# fn main() -> Result<(), Error> {
-use serde_bytes::ByteBuf;
+use std::collections::BTreeMap;
 use serde_derive::Deserialize;
 
 let mut dict: BTreeMap<String, String> = BTreeMap::new();
@@ -41,20 +38,17 @@ struct Info {
 
 let info: Info = bt_bencode::from_slice(&serialized_bytes)?;
 assert_eq!(info.url, "https://example.com/");
-#   Ok(())
-# }
+# Ok::<(), bt_bencode::Error>(())
 ```
 
-An example deserializing from an unknown slice of bytes and then into a custom type.
+An example deserializing from a slice of bytes into a general `Value`
+representation and then from the `Value` instance into a more strongly typed
+data structure.
 
 ```rust
-# use bt_bencode::Error;
-# use std::collections::BTreeMap;
-#
-# fn main() -> Result<(), Error> {
-use bt_bencode::Value;
-use serde_bytes::ByteBuf;
 use serde_derive::{Serialize, Deserialize};
+
+use bt_bencode::Value;
 
 #[derive(Serialize, Deserialize)]
 struct Info {
@@ -68,12 +62,16 @@ let serialized_bytes = bt_bencode::to_vec(&Info {
 })?;
 
 let value: Value = bt_bencode::from_slice(&serialized_bytes)?;
-assert_eq!(value["t"].as_str().ok_or(Error::UnsupportedType)?, "query");
+assert_eq!(value["t"].as_str().unwrap(), "query");
+assert_eq!(
+    value.get("url").and_then(|url| url.as_str()).unwrap(),
+    "https://example.com/"
+);
 
 let info: Info = bt_bencode::from_value(value)?;
+assert_eq!(info.t, "query");
 assert_eq!(info.url, "https://example.com/");
-#   Ok(())
-# }
+# Ok::<(), bt_bencode::Error>(())
 ```
 
 ## License
