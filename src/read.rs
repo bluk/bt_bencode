@@ -21,6 +21,7 @@ pub trait Read<'de> {
 
 /// A wrapper to implement this crate's `Read` trait for `std::io::Read` trait implementations.
 #[cfg(feature = "std")]
+#[derive(Debug)]
 pub struct IoRead<R>
 where
     R: io::Read,
@@ -90,6 +91,7 @@ where
 }
 
 /// A wrapper to implement this crate's `Read` trait for byte slices.
+#[derive(Debug)]
 pub struct SliceRead<'a> {
     slice: &'a [u8],
     byte_offset: usize,

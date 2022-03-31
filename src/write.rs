@@ -16,6 +16,7 @@ pub trait Write {
 }
 
 #[cfg(feature = "std")]
+#[derive(Debug)]
 pub struct IoWrite<W>
 where
     W: io::Write,

@@ -1,7 +1,11 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![warn(rust_2018_idioms)]
+#![warn(
+    rust_2018_idioms,
+    missing_copy_implementations,
+    missing_debug_implementations
+)]
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 extern crate alloc;
