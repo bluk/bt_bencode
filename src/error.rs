@@ -119,7 +119,7 @@ impl de::Error for Error {
         Error::Deserialize(msg.to_string())
     }
 
-    fn invalid_type(unexp: de::Unexpected, exp: &dyn de::Expected) -> Self {
+    fn invalid_type(unexp: de::Unexpected<'_>, exp: &dyn de::Expected) -> Self {
         Error::Deserialize(format!(
             "unexpected type error. invalid_type={}, expected_type={}",
             unexp, exp

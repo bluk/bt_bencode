@@ -551,7 +551,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
 }
 
 #[derive(Debug)]
-struct SeqAccess<'a, R: 'a> {
+struct SeqAccess<'a, R> {
     de: &'a mut Deserializer<R>,
 }
 
@@ -576,7 +576,7 @@ impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
 }
 
 #[derive(Debug)]
-struct MapAccess<'a, R: 'a> {
+struct MapAccess<'a, R> {
     de: &'a mut Deserializer<R>,
 }
 
@@ -609,7 +609,7 @@ impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
 }
 
 #[derive(Debug)]
-struct MapKey<'a, R: 'a> {
+struct MapKey<'a, R> {
     de: &'a mut Deserializer<R>,
 }
 
