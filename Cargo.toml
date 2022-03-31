@@ -34,3 +34,7 @@ default = ["std"]
 std = ["serde/std", "serde_bytes/std"]
 
 alloc = ["serde/alloc", "serde_bytes/alloc"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
