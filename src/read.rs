@@ -8,7 +8,7 @@ use std::io;
 use crate::error::Result;
 
 /// Trait used by the [`de::Deserializer`][crate::de::Deserializer] to read bytes.
-pub trait Read<'de> {
+pub trait Read {
     /// Consumes and returns the next read byte.
     fn next(&mut self) -> Option<Result<u8>>;
     /// Returns the next byte but does not consume.
@@ -47,7 +47,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<'de, R> Read<'de> for IoRead<R>
+impl<R> Read for IoRead<R>
 where
     R: io::Read,
 {
@@ -108,7 +108,7 @@ impl<'a> SliceRead<'a> {
     }
 }
 
-impl<'a> Read<'a> for SliceRead<'a> {
+impl<'a> Read for SliceRead<'a> {
     #[inline]
     fn next(&mut self) -> Option<Result<u8>> {
         if self.byte_offset < self.slice.len() {

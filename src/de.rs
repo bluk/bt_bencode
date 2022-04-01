@@ -49,9 +49,9 @@ pub struct Deserializer<R> {
     read: R,
 }
 
-impl<'de, R> Deserializer<R>
+impl<R> Deserializer<R>
 where
-    R: read::Read<'de>,
+    R: Read,
 {
     /// Constructs a Deserializer from a readable source.
     pub fn new(read: R) -> Self {
@@ -316,7 +316,7 @@ macro_rules! forward_deserialize_unsigned_integer {
     };
 }
 
-impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
+impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     type Error = Error;
 
     #[inline]
@@ -563,7 +563,7 @@ impl<'a, R: 'a> SeqAccess<'a, R> {
     }
 }
 
-impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
+impl<'de, 'a, R: Read + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
     type Error = Error;
 
     fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>>
@@ -588,7 +588,7 @@ impl<'a, R: 'a> MapAccess<'a, R> {
     }
 }
 
-impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
+impl<'de, 'a, R: Read + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
     type Error = Error;
 
     fn next_key_seed<K>(&mut self, seed: K) -> Result<Option<K::Value>>
@@ -617,7 +617,7 @@ struct MapKey<'a, R> {
 
 impl<'de, 'a, R> de::Deserializer<'de> for MapKey<'a, R>
 where
-    R: Read<'de>,
+    R: Read,
 {
     type Error = Error;
 
