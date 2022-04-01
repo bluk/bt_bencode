@@ -3,7 +3,7 @@
 use super::{Number, Value};
 use crate::error::Error;
 use serde::de::{
-    self, DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
+    DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde::forward_to_deserialize_any;
 use serde_bytes::ByteBuf;
@@ -97,14 +97,14 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
     }
 
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }
@@ -116,7 +116,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
-        V: de::Visitor<'de>,
+        V: Visitor<'de>,
     {
         self.deserialize_seq(visitor)
     }

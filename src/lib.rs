@@ -5,7 +5,9 @@
     missing_copy_implementations,
     missing_debug_implementations,
     missing_docs,
-    rust_2018_idioms
+    rust_2018_idioms,
+    unused_lifetimes,
+    unused_qualifications
 )]
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]

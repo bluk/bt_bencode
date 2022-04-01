@@ -516,7 +516,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         Err(Error::UnsupportedType)
     }
 
-    fn serialize_newtype_struct<T: ?Sized + ser::Serialize>(
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
         _value: &T,
@@ -524,7 +524,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         Err(Error::UnsupportedType)
     }
 
-    fn serialize_newtype_variant<T: ?Sized + ser::Serialize>(
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
         self,
         _name: &'static str,
         _variant_index: u32,
@@ -538,7 +538,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         Err(Error::UnsupportedType)
     }
 
-    fn serialize_some<T: ?Sized + ser::Serialize>(self, _value: &T) -> Result<Vec<u8>> {
+    fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<Vec<u8>> {
         Err(Error::UnsupportedType)
     }
 
