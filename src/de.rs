@@ -241,7 +241,7 @@ where
                 b'i' => self.capture_integer(buf)?,
                 b'l' => self.capture_list(buf)?,
                 b'd' => self.capture_dict(buf)?,
-                _ => return Err(Error::InvalidDict),
+                _ => return Err(Error::InvalidList),
             }
         }
     }
