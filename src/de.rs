@@ -177,7 +177,7 @@ where
         let len = self.parse_bytes_len()?;
         let mut buf = vec![0u8; len];
         for i in &mut buf {
-            *i = self.parse_next()?
+            *i = self.parse_next()?;
         }
         Ok(buf)
     }
