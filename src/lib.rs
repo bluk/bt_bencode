@@ -2,9 +2,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![warn(
-    rust_2018_idioms,
     missing_copy_implementations,
-    missing_debug_implementations
+    missing_debug_implementations,
+    missing_docs,
+    rust_2018_idioms
 )]
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]

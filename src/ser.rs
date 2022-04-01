@@ -18,8 +18,10 @@ use crate::write::Write;
 ///
 /// # Errors
 ///
-/// Serialization can fail if `T`'s implementation of `Serialize` decides to fail, if `T` contains
-/// unsupported types for serialization, or if `T` contains a map with non-string keys.
+/// Serialization can fail if `T`'s implementation of
+/// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
+/// unsupported types for serialization, or if `T` contains a map with
+/// non-string keys.
 #[cfg(feature = "std")]
 #[inline]
 pub fn to_writer<W, T>(writer: W, value: &T) -> Result<()>
@@ -32,12 +34,14 @@ where
     Ok(())
 }
 
-/// Serializes an instance of `T` into a new `Vec` as `Bencode` data.
+/// Serializes an instance of `T` into a new [Vec] as `Bencode` data.
 ///
 /// # Errors
 ///
-/// Serialization can fail if `T`'s implemenation of `Serialize` decides to fail, if `T` contains
-/// unsupported types for serialization, or if `T` contains a map with non-string keys.
+/// Serialization can fail if `T`'s implemenation of
+/// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
+/// unsupported types for serialization, or if `T` contains a map with
+/// non-string keys.
 #[inline]
 pub fn to_vec<T>(value: &T) -> Result<Vec<u8>>
 where
@@ -49,7 +53,7 @@ where
     Ok(writer)
 }
 
-/// A `Bencode` Serializer for types which implement `Serialize`.
+/// A `Bencode` Serializer for types which implement [Serialize][serde::ser::Serialize].
 #[derive(Debug)]
 pub struct Serializer<W> {
     writer: W,
@@ -59,7 +63,7 @@ impl<W> Serializer<W>
 where
     W: Write,
 {
-    /// Constructs a Serializer with an `io::Write` target.
+    /// Constructs a Serializer with an [Write] target.
     pub fn new(writer: W) -> Self {
         Serializer { writer }
     }

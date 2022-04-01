@@ -101,6 +101,8 @@ pub enum Value {
 }
 
 impl Value {
+    /// If the value is a byte string, returns a reference to the underlying value.
+    #[must_use]
     pub fn as_byte_str(&self) -> Option<&ByteBuf> {
         match self {
             Value::ByteStr(b) => Some(b),
@@ -108,6 +110,8 @@ impl Value {
         }
     }
 
+    /// If the value is a byte string, returns a mutable reference to the underlying value.
+    #[must_use]
     pub fn as_byte_str_mut(&mut self) -> Option<&mut ByteBuf> {
         match self {
             Value::ByteStr(ref mut b) => Some(b),
@@ -115,6 +119,8 @@ impl Value {
         }
     }
 
+    /// If the value is a UTF-8 string, returns a reference to the underlying value.
+    #[must_use]
     pub fn as_str(&self) -> Option<&str> {
         match self {
             Value::ByteStr(b) => str::from_utf8(b.as_slice()).ok(),
@@ -122,6 +128,8 @@ impl Value {
         }
     }
 
+    /// If the value is a UTF-8 string, returns a mutable reference to the underlying value.
+    #[must_use]
     pub fn as_str_mut(&mut self) -> Option<&mut str> {
         match self {
             Value::ByteStr(ref mut b) => str::from_utf8_mut(b.as_mut_slice()).ok(),
@@ -129,6 +137,8 @@ impl Value {
         }
     }
 
+    /// If the value is a number, returns a reference to the underlying value.
+    #[must_use]
     pub fn as_number(&self) -> Option<&Number> {
         match self {
             Value::Int(n) => Some(n),
@@ -136,6 +146,8 @@ impl Value {
         }
     }
 
+    /// If the value is a [u64], returns the underlying value.
+    #[must_use]
     pub fn as_u64(&self) -> Option<u64> {
         match self {
             Value::Int(Number::Unsigned(n)) => Some(*n),
@@ -143,6 +155,8 @@ impl Value {
         }
     }
 
+    /// If the value is a [i64], returns the underlying value.
+    #[must_use]
     pub fn as_i64(&self) -> Option<i64> {
         match self {
             Value::Int(Number::Signed(n)) => Some(*n),
@@ -150,6 +164,8 @@ impl Value {
         }
     }
 
+    /// If the value is an array, returns a reference to the underlying value.
+    #[must_use]
     pub fn as_array(&self) -> Option<&Vec<Value>> {
         match self {
             Value::List(ref l) => Some(l),
@@ -157,6 +173,8 @@ impl Value {
         }
     }
 
+    /// If the value is an array, returns a mutable reference to the underlying value.
+    #[must_use]
     pub fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
         match self {
             Value::List(ref mut l) => Some(l),
@@ -164,6 +182,8 @@ impl Value {
         }
     }
 
+    /// If the value is a dictionary, returns a reference to the underlying value.
+    #[must_use]
     pub fn as_dict(&self) -> Option<&BTreeMap<ByteBuf, Value>> {
         match self {
             Value::Dict(d) => Some(d),
@@ -171,6 +191,8 @@ impl Value {
         }
     }
 
+    /// If the value is a dictionary, returns a mutable reference to the underlying value.
+    #[must_use]
     pub fn as_dict_mut(&mut self) -> Option<&mut BTreeMap<ByteBuf, Value>> {
         match self {
             Value::Dict(ref mut d) => Some(d),
@@ -178,26 +200,44 @@ impl Value {
         }
     }
 
+    /// Returns true if the value is a byte string.
+    #[must_use]
     pub fn is_byte_str(&self) -> bool {
         self.as_byte_str().is_some()
     }
 
+    /// Returns true if the value is a UTF-8 string.
+    ///
+    /// Note that the value could be a byte string but not a UTF-8 string.
+    #[must_use]
     pub fn is_string(&self) -> bool {
         self.as_str().is_some()
     }
 
+    /// Returns true if the value is a an [u64].
+    ///
+    /// Note that the value could be a [i64].
+    #[must_use]
     pub fn is_u64(&self) -> bool {
         self.as_u64().is_some()
     }
 
+    /// Returns true if the value is a an [i64].
+    ///
+    /// Note that the value could be a [u64].
+    #[must_use]
     pub fn is_i64(&self) -> bool {
         self.as_i64().is_some()
     }
 
+    /// Returns true if the value is an array.
+    #[must_use]
     pub fn is_array(&self) -> bool {
         self.as_array().is_some()
     }
 
+    /// Returns true if the value is a dictionary.
+    #[must_use]
     pub fn is_dict(&self) -> bool {
         self.as_dict().is_some()
     }
@@ -397,10 +437,12 @@ mod ser;
 pub use index::Index;
 
 impl Value {
+    /// Used to get a reference to a value with an index.
     pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
         index.index(self)
     }
 
+    /// Used to get a mutable reference to a value with an index.
     pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut Value> {
         index.index_mut(self)
     }

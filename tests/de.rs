@@ -67,7 +67,7 @@ fn test_deserialize_info_hash() -> Result<(), Error> {
 
     let info: Value = bt_bencode::from_slice(&metainfo.info).unwrap();
 
-    // Need to verify the value is actually a dictionary. The `ByteBuf` could have been any value.
+    // Need to verify the value is actually a dictionary. The ByteBuf could have been any value.
     assert!(info.is_dict());
 
     // Verify that a round-trip decoding and encoding produces the same info hash.

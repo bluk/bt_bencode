@@ -1,4 +1,4 @@
-//! `Read` trait and helpers to read bytes for the deserializer.
+//! [Read] trait and helpers to read bytes for the deserializer.
 
 #[cfg(feature = "std")]
 use crate::error::Error;
@@ -7,19 +7,19 @@ use std::io;
 
 use crate::error::Result;
 
-/// Trait used by the `de::Deserializer` to read bytes.
+/// Trait used by the [`de::Deserializer`][crate::de::Deserializer] to read bytes.
 pub trait Read<'de> {
     /// Consumes and returns the next read byte.
     fn next(&mut self) -> Option<Result<u8>>;
     /// Returns the next byte but does not consume.
     ///
-    /// Repeated peeks (with no `next()` call) should return the same byte.
+    /// Repeated peeks (with no [next()][Read::next] call) should return the same byte.
     fn peek(&mut self) -> Option<Result<u8>>;
     /// Returns the position in the stream of bytes.
     fn byte_offset(&self) -> usize;
 }
 
-/// A wrapper to implement this crate's `Read` trait for `std::io::Read` trait implementations.
+/// A wrapper to implement this crate's [Read] trait for [`std::io::Read`] trait implementations.
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct IoRead<R>
@@ -90,7 +90,7 @@ where
     }
 }
 
-/// A wrapper to implement this crate's `Read` trait for byte slices.
+/// A wrapper to implement this crate's [Read] trait for byte slices.
 #[derive(Debug)]
 pub struct SliceRead<'a> {
     slice: &'a [u8],
@@ -99,6 +99,7 @@ pub struct SliceRead<'a> {
 
 impl<'a> SliceRead<'a> {
     /// Instantiates a new reader.
+    #[must_use]
     pub fn new(slice: &'a [u8]) -> Self {
         SliceRead {
             slice,

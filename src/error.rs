@@ -18,28 +18,61 @@ use core::{
     num, result,
 };
 
-/// Alias for a `Result` with a `bt_bencode::Error` error type.
+/// Alias for a [`Result`][std::result::Result] with a [`bt_bencode::Error`][Error] error type.
 pub type Result<T> = result::Result<T, Error>;
 
 /// All possible crate errors.
 #[derive(Debug)]
 pub enum Error {
+    /// General deserialization error.
+    ///
+    /// Usually the error is due to mismatching types (e.g. a struct was expecting an u64 but the data had a string).
     Deserialize(String),
+    /// End of file was encountered while parsing a value.
     EofWhileParsingValue,
+    /// A value was expected but the deserializer did not find a valid bencoded value.
     ExpectedSomeValue,
+    /// Error when decoding a byte string into a UTF-8 string.
+    ///
+    /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
     FromUtf8Error(string::FromUtf8Error),
+    /// When deserializing a byte string, the length was not a valid number.
     InvalidByteStrLen,
+    /// When deserializing an integer, the integer contained non-number characters.
     InvalidInteger,
+    /// When deserializing a dictionary, the dictionary was not encoded correctly.
+    ///
+    /// Usually, the error is because a dictionary was not a byte string.
     InvalidDict,
+    /// When deserializing a list, the list was not encoded correctly.
+    ///
+    /// Usually the error is because an invalid encoded item in the list was found.
     InvalidList,
+    /// An I/O error.
     #[cfg(feature = "std")]
     IoError(io::Error),
+    /// When deserializing, a dictionary key was found which was not a byte string.
     KeyMustBeAByteStr,
+    /// A dictionary key was serialized but did not have a value for the key.
     KeyWithoutValue,
+    /// Error when deserializing a number.
+    ///
+    /// If the number could not be parsed correctly. Either the number itself
+    /// was invalid or the wrong type was used (a signed integer was encoded but
+    /// a [u64] was the expected type).
     ParseIntError(num::ParseIntError),
+    /// General serialization error.
     Serialize(String),
+    /// Unparsed trailing data was detected
     TrailingData,
+    /// An unsupported type was used.
+    ///
+    /// Usually the error is due to using unsupported types for keys (e.g. using
+    /// an integer type instead of a ByteStr).
     UnsupportedType,
+    /// A dictionary did not have a key but had a value.
+    ///
+    /// Should never occur.
     ValueWithoutKey,
 }
 

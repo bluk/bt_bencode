@@ -9,7 +9,7 @@ use alloc::{string::String, vec, vec::Vec};
 #[cfg(feature = "std")]
 use std::{io, string::String, vec, vec::Vec};
 
-/// Deserializes an instance of `T` from the bytes of an `io::Read` type.
+/// Deserializes an instance of `T` from the bytes of an [`io::Read`] type.
 ///
 /// # Errors
 ///
@@ -44,7 +44,7 @@ where
 }
 
 #[derive(Debug)]
-/// A `Bencode` Deserializer for types which implement `Deserialize`.
+/// A `Bencode` Deserializer for types which implement [Deserialize][serde::de::Deserialize].
 pub struct Deserializer<R> {
     read: R,
 }
@@ -279,7 +279,8 @@ impl<R> Deserializer<read::IoRead<R>>
 where
     R: io::Read,
 {
-    /// Constructs a Deserializer from an `io::IoRead` source.
+    /// Constructs a Deserializer from an [`std::io::Read`][std::io::Read] source.
+    #[must_use]
     pub fn from_reader(reader: R) -> Self {
         Deserializer::new(read::IoRead::new(reader))
     }
@@ -287,6 +288,7 @@ where
 
 impl<'a> Deserializer<read::SliceRead<'a>> {
     /// Constructs a Deserializer from a `&[u8]`.
+    #[must_use]
     pub fn from_slice(bytes: &'a [u8]) -> Self {
         Deserializer::new(read::SliceRead::new(bytes))
     }

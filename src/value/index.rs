@@ -1,4 +1,4 @@
-//! Indexes into the `Value` type.
+//! Indexes into the [Value] type.
 
 use super::Value;
 use core::ops;
@@ -9,10 +9,12 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use std::string::String;
 
-/// Indexes into the `Value` type.
+/// Indexes into the [Value] type.
 pub trait Index {
+    /// If possible, returns a reference to the value using `&self` as an index for the [Value] parameter.
     fn index<'a>(&self, v: &'a Value) -> Option<&'a Value>;
 
+    /// If possible, returns a mutable reference to the value using `&self` as an index for the [Value] parameter.
     fn index_mut<'a>(&self, v: &'a mut Value) -> Option<&'a mut Value>;
 }
 

@@ -1,4 +1,4 @@
-//! `Write` trait and helpers to write bytes for the serializer.
+//! [Write] trait and helpers to write bytes for the serializer.
 
 #[cfg(feature = "std")]
 use crate::error::Error;
@@ -11,10 +11,17 @@ use alloc::vec::Vec;
 
 use crate::error::Result;
 
+/// Trait used by the [`ser::Serializer`][crate::ser::Serializer] to write bytes.
 pub trait Write {
+    /// Writes all of the bytes.
+    ///
+    /// # Errors
+    ///
+    /// If the bytes could not be written, a Bencode error is returned.
     fn write_all(&mut self, buf: &[u8]) -> Result<()>;
 }
 
+/// A wrapper to implement this crate's [Write] trait for [`std::io::Write`] trait implementations.
 #[cfg(feature = "std")]
 #[derive(Debug)]
 pub struct IoWrite<W>
@@ -29,6 +36,7 @@ impl<W> IoWrite<W>
 where
     W: io::Write,
 {
+    /// Instantiates a new writer.
     pub fn new(writer: W) -> Self {
         Self { writer }
     }

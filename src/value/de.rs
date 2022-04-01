@@ -1,4 +1,4 @@
-//! Deserializes from a `Value`.
+//! Deserializes from a [Value].
 
 use super::{Number, Value};
 use crate::error::Error;
@@ -13,7 +13,7 @@ use alloc::{collections::BTreeMap, vec, vec::Vec};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, vec, vec::Vec};
 
-/// Deserializes an instance of `T` from a `Value`.
+/// Deserializes an instance of `T` from a [Value].
 ///
 /// # Errors
 ///
