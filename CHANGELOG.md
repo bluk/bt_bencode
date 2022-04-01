@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v0.6.1
+
+### Updated
+
+* Fix wrong error returned when parsing an invalid list.
+* Add documentation to more items
+* Add #[must_use] to more functions
+
 ## v0.6.0
 
 ### Added
