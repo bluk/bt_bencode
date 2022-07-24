@@ -24,6 +24,7 @@ pub trait Write {
 /// A wrapper to implement this crate's [Write] trait for [`std::io::Write`] trait implementations.
 #[cfg(feature = "std")]
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct IoWrite<W>
 where
     W: io::Write,

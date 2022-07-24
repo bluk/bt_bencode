@@ -616,8 +616,7 @@ mod tests {
 
     #[test]
     fn test_serialize_unit() {
-        let value = ();
-        assert!(matches!(to_value(&value), Err(Error::UnsupportedType)));
+        assert!(matches!(to_value(&()), Err(Error::UnsupportedType)));
     }
 
     #[test]

@@ -23,7 +23,7 @@ fn test_deserialize_torrent_file_via_value() -> Result<(), Error> {
 
     let announce = decoded_value
         .get("announce")
-        .and_then(|v| v.as_byte_str())
+        .and_then(bt_bencode::Value::as_byte_str)
         .map(|v| v.to_vec());
 
     assert_eq!(
@@ -80,17 +80,17 @@ fn test_deserialize_info_hash() -> Result<(), Error> {
     assert_eq!(orig_info_hash, re_encoded_info_hash);
 
     assert_eq!(
-        info.get("piece length").and_then(|v| v.as_u64()),
+        info.get("piece length").and_then(bt_bencode::Value::as_u64),
         Some(262_144)
     );
     assert_eq!(
         info.get("pieces")
-            .and_then(|v| v.as_byte_str())
+            .and_then(bt_bencode::Value::as_byte_str)
             .map(|v| v.len()),
         Some(101_600)
     );
     assert_eq!(
-        info.get("length").and_then(|v| v.as_u64()),
+        info.get("length").and_then(bt_bencode::Value::as_u64),
         Some(1_331_691_520)
     );
 

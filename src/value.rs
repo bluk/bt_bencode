@@ -13,7 +13,7 @@ use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::
 use std::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 
 /// Represents a valid Bencode number.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Number {
     /// A signed integer.
     Signed(i64),
@@ -325,7 +325,7 @@ impl From<String> for Value {
 
 impl<V: Into<Value>> From<Vec<V>> for Value {
     fn from(other: Vec<V>) -> Value {
-        Value::List(other.into_iter().map(|v| v.into()).collect())
+        Value::List(other.into_iter().map(std::convert::Into::into).collect())
     }
 }
 

@@ -60,9 +60,9 @@ impl Index for String {
     }
 }
 
-impl<'s, T: ?Sized> Index for &'s T
+impl<'s, T> Index for &'s T
 where
-    T: Index,
+    T: Index + ?Sized,
 {
     fn index<'a>(&self, val: &'a Value) -> Option<&'a Value> {
         (*self).index(val)

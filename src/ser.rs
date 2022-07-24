@@ -723,8 +723,7 @@ mod tests {
 
     #[test]
     fn test_serialize_unit() {
-        let value = ();
-        assert!(matches!(to_vec(&value), Err(Error::UnsupportedType)));
+        assert!(matches!(to_vec(&()), Err(Error::UnsupportedType)));
     }
 
     #[test]

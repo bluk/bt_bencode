@@ -22,6 +22,7 @@ pub trait Read {
 /// A wrapper to implement this crate's [Read] trait for [`std::io::Read`] trait implementations.
 #[cfg(feature = "std")]
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct IoRead<R>
 where
     R: io::Read,
@@ -92,6 +93,7 @@ where
 
 /// A wrapper to implement this crate's [Read] trait for byte slices.
 #[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
 pub struct SliceRead<'a> {
     slice: &'a [u8],
     byte_offset: usize,
