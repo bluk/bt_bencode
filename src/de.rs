@@ -5,9 +5,9 @@ use crate::read::{self, Read};
 use serde::de::{self, Expected, Unexpected};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{string::String, vec::Vec};
+use alloc::vec::Vec;
 #[cfg(feature = "std")]
-use std::{io, string::String, vec::Vec};
+use std::{io, vec::Vec};
 
 /// Deserializes an instance of `T` from the bytes of an [`io::Read`] type.
 ///
@@ -185,9 +185,7 @@ where
     fn parse_bytes(&mut self) -> Result<()> {
         let len = self.parse_bytes_len()?;
         self.buf.clear();
-        if self.buf.len() < len {
-            self.buf.reserve(len - self.buf.len());
-        }
+        self.buf.reserve(len);
         // TODO: Should have a method to read from a slice
         for _ in 0..len {
             self.buf
@@ -196,36 +194,40 @@ where
         Ok(())
     }
 
-    fn capture_byte_string_len(&mut self, buf: &mut Vec<u8>) -> Result<usize> {
-        let mut len_buf = Vec::new();
+    fn capture_byte_string_len(&mut self) -> Result<usize> {
+        let start_idx = self.buf.len();
         loop {
             match self.parse_next()? {
                 b':' => {
-                    let len = String::from_utf8(len_buf.clone())?.parse()?;
-                    buf.extend(len_buf);
-                    buf.push(b':');
+                    let len = core::str::from_utf8(&self.buf[start_idx..])?.parse()?;
+                    self.buf.push(b':');
                     return Ok(len);
                 }
-                n @ b'0'..=b'9' => len_buf.push(n),
+                n @ b'0'..=b'9' => self.buf.push(n),
                 _ => return Err(Error::InvalidByteStrLen),
             }
         }
     }
 
-    fn capture_byte_string(&mut self, buf: &mut Vec<u8>) -> Result<()> {
-        let len = self.capture_byte_string_len(buf)?;
-        buf.reserve(len);
+    fn capture_byte_string(&mut self) -> Result<()> {
+        let len = self.capture_byte_string_len()?;
+        self.buf.reserve(len);
         for _ in 0..len {
-            buf.push(self.parse_next()?);
+            self.buf
+                .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
         }
         Ok(())
     }
 
-    fn capture_integer(&mut self, buf: &mut Vec<u8>) -> Result<()> {
-        buf.push(self.parse_next()?);
+    fn capture_integer(&mut self) -> Result<()> {
+        self.buf
+            .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
 
         match self.parse_peek()? {
-            b'-' => buf.push(self.parse_next()?),
+            b'-' => {
+                self.buf
+                    .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
+            }
             b'0'..=b'9' => {}
             _ => return Err(Error::InvalidInteger),
         }
@@ -233,41 +235,45 @@ where
         loop {
             match self.parse_next()? {
                 b'e' => {
-                    buf.push(b'e');
+                    self.buf.push(b'e');
                     return Ok(());
                 }
-                n @ b'0'..=b'9' => buf.push(n),
+                n @ b'0'..=b'9' => self.buf.push(n),
                 _ => return Err(Error::InvalidInteger),
             }
         }
     }
 
-    fn capture_list(&mut self, buf: &mut Vec<u8>) -> Result<()> {
-        buf.push(self.parse_next()?);
+    fn capture_list(&mut self) -> Result<()> {
+        self.buf
+            .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
 
         loop {
             match self.parse_peek()? {
                 b'e' => {
-                    buf.push(self.parse_next()?);
+                    self.buf
+                        .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
                     return Ok(());
                 }
-                b'0'..=b'9' => self.capture_byte_string(buf)?,
-                b'i' => self.capture_integer(buf)?,
-                b'l' => self.capture_list(buf)?,
-                b'd' => self.capture_dict(buf)?,
+                b'0'..=b'9' => self.capture_byte_string()?,
+                b'i' => self.capture_integer()?,
+                b'l' => self.capture_list()?,
+                b'd' => self.capture_dict()?,
                 _ => return Err(Error::InvalidList),
             }
         }
     }
 
-    fn capture_dict(&mut self, buf: &mut Vec<u8>) -> Result<()> {
-        buf.push(self.parse_next()?);
+    fn capture_dict(&mut self) -> Result<()> {
+        self.buf
+            .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
 
         loop {
             match self.parse_peek()? {
-                b'0'..=b'9' => self.capture_byte_string(buf)?,
+                b'0'..=b'9' => self.capture_byte_string()?,
                 b'e' => {
-                    buf.push(self.parse_next()?);
+                    self.buf
+                        .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
                     return Ok(());
                 }
                 _ => {
@@ -276,10 +282,10 @@ where
             }
 
             match self.parse_peek()? {
-                b'0'..=b'9' => self.capture_byte_string(buf)?,
-                b'i' => self.capture_integer(buf)?,
-                b'l' => self.capture_list(buf)?,
-                b'd' => self.capture_dict(buf)?,
+                b'0'..=b'9' => self.capture_byte_string()?,
+                b'i' => self.capture_integer()?,
+                b'l' => self.capture_list()?,
+                b'd' => self.capture_dict()?,
                 _ => {
                     return Err(Error::InvalidDict);
                 }
@@ -461,35 +467,35 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_byte_buf(visitor)
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
         match self.parse_peek()? {
             b'0'..=b'9' => {
                 self.parse_bytes()?;
                 visitor.visit_bytes(&self.buf)
             }
             b'i' => {
-                let mut bytes = Vec::new();
-                self.capture_integer(&mut bytes)?;
-                visitor.visit_byte_buf(bytes)
+                self.buf.clear();
+                self.capture_integer()?;
+                visitor.visit_bytes(&self.buf)
             }
             b'l' => {
-                let mut bytes = Vec::new();
-                self.capture_list(&mut bytes)?;
-                visitor.visit_byte_buf(bytes)
+                self.buf.clear();
+                self.capture_list()?;
+                visitor.visit_bytes(&self.buf)
             }
             b'd' => {
-                let mut bytes = Vec::new();
-                self.capture_dict(&mut bytes)?;
-                visitor.visit_byte_buf(bytes)
+                self.buf.clear();
+                self.capture_dict()?;
+                visitor.visit_bytes(&self.buf)
             }
             _ => Err(self.unexpected_type_err(&visitor)?),
         }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.deserialize_bytes(visitor)
     }
 
     #[inline]
