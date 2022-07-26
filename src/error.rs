@@ -16,6 +16,7 @@ use std::{
 use core::{
     fmt::{self, Display},
     num, result,
+    str::Utf8Error,
 };
 
 /// Alias for a [`Result`][std::result::Result] with a [`bt_bencode::Error`][Error] error type.
@@ -32,6 +33,10 @@ pub enum Error {
     EofWhileParsingValue,
     /// A value was expected but the deserializer did not find a valid bencoded value.
     ExpectedSomeValue,
+    /// Error when decoding a byte string into a UTF-8 string.
+    ///
+    /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
+    Utf8Error(Utf8Error),
     /// Error when decoding a byte string into a UTF-8 string.
     ///
     /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
@@ -93,6 +98,7 @@ impl error::Error for Error {
             | Error::TrailingData
             | Error::UnsupportedType
             | Error::ValueWithoutKey => None,
+            Error::Utf8Error(err) => Some(err),
             Error::FromUtf8Error(err) => Some(err),
             #[cfg(feature = "std")]
             Error::IoError(err) => Some(err),
@@ -107,6 +113,7 @@ impl Display for Error {
             Error::Deserialize(str) | Error::Serialize(str) => f.write_str(str),
             Error::EofWhileParsingValue => f.write_str("eof while parsing value"),
             Error::ExpectedSomeValue => f.write_str("expected some value"),
+            Error::Utf8Error(err) => Display::fmt(err, f),
             Error::FromUtf8Error(err) => Display::fmt(err, f),
             Error::InvalidByteStrLen => f.write_str("invalid byte string length"),
             Error::InvalidInteger => f.write_str("invalid integer"),
@@ -131,6 +138,12 @@ impl From<Error> for io::Error {
             Error::IoError(e) => e,
             _ => io::Error::from(io::ErrorKind::Other),
         }
+    }
+}
+
+impl From<Utf8Error> for Error {
+    fn from(other: Utf8Error) -> Self {
+        Error::Utf8Error(other)
     }
 }
 

@@ -5,9 +5,9 @@ use crate::read::{self, Read};
 use serde::de::{self, Expected, Unexpected};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{string::String, vec, vec::Vec};
+use alloc::{string::String, vec::Vec};
 #[cfg(feature = "std")]
-use std::{io, string::String, vec, vec::Vec};
+use std::{io, string::String, vec::Vec};
 
 /// Deserializes an instance of `T` from the bytes of an [`io::Read`] type.
 ///
@@ -47,6 +47,8 @@ where
 /// A `Bencode` Deserializer for types which implement [Deserialize][serde::de::Deserialize].
 pub struct Deserializer<R> {
     read: R,
+    /// Temporary buffer used to reduce allocations made
+    buf: Vec<u8>,
 }
 
 impl<R> Deserializer<R>
@@ -55,7 +57,10 @@ where
 {
     /// Constructs a Deserializer from a readable source.
     pub fn new(read: R) -> Self {
-        Deserializer { read }
+        Deserializer {
+            read,
+            buf: Vec::default(),
+        }
     }
 
     /// Should be called after a value from the source is deserialized to validate that the entire
@@ -94,12 +99,12 @@ where
     fn unexpected_type_err(&mut self, exp: &dyn Expected) -> Result<Error> {
         match self.parse_peek()? {
             b'0'..=b'9' => {
-                let bytes = self.parse_bytes()?;
-                Ok(de::Error::invalid_type(Unexpected::Bytes(&bytes), exp))
+                self.parse_bytes()?;
+                Ok(de::Error::invalid_type(Unexpected::Bytes(&self.buf), exp))
             }
             b'i' => {
                 self.parse_next()?;
-                let num_str = self.parse_integer_string()?;
+                let num_str = self.parse_integer_str()?;
                 if num_str.starts_with('-') {
                     Ok(de::Error::invalid_type(
                         Unexpected::Signed(num_str.parse()?),
@@ -134,52 +139,61 @@ where
         }
     }
 
-    fn parse_integer_bytes(&mut self, is_pos: bool) -> Result<Vec<u8>> {
-        let mut result = Vec::new();
+    fn parse_integer_bytes(&mut self, is_pos: bool) -> Result<()> {
+        self.buf.clear();
         if !is_pos {
-            result.push(b'-');
+            self.buf.push(b'-');
         }
         loop {
             match self.parse_next()? {
-                b'e' => return Ok(result),
-                n @ b'0'..=b'9' => result.push(n),
+                b'e' => return Ok(()),
+                n @ b'0'..=b'9' => self.buf.push(n),
                 _ => return Err(Error::InvalidInteger),
             }
         }
     }
 
-    fn parse_integer_string(&mut self) -> Result<String> {
+    fn parse_integer_str(&mut self) -> Result<&str> {
         match self.parse_peek()? {
             b'-' => {
                 self.parse_next()?;
-                Ok(String::from_utf8(self.parse_integer_bytes(false)?)?)
+                self.parse_integer_bytes(false)?;
+                Ok(core::str::from_utf8(&self.buf)?)
             }
-            b'0'..=b'9' => Ok(String::from_utf8(self.parse_integer_bytes(true)?)?),
+            b'0'..=b'9' => {
+                self.parse_integer_bytes(true)?;
+                Ok(core::str::from_utf8(&self.buf)?)
+            }
             _ => Err(Error::InvalidInteger),
         }
     }
 
     #[inline]
     fn parse_bytes_len(&mut self) -> Result<usize> {
-        let mut result: Vec<u8> = Vec::new();
+        self.buf.clear();
         loop {
             match self.parse_next()? {
                 b':' => {
-                    return Ok(String::from_utf8(result)?.parse()?);
+                    return Ok(core::str::from_utf8(&self.buf)?.parse()?);
                 }
-                n @ b'0'..=b'9' => result.push(n),
+                n @ b'0'..=b'9' => self.buf.push(n),
                 _ => return Err(Error::InvalidByteStrLen),
             }
         }
     }
 
-    fn parse_bytes(&mut self) -> Result<Vec<u8>> {
+    fn parse_bytes(&mut self) -> Result<()> {
         let len = self.parse_bytes_len()?;
-        let mut buf = vec![0u8; len];
-        for i in &mut buf {
-            *i = self.parse_next()?;
+        self.buf.clear();
+        if self.buf.len() < len {
+            self.buf.reserve(len - self.buf.len());
         }
-        Ok(buf)
+        // TODO: Should have a method to read from a slice
+        for _ in 0..len {
+            self.buf
+                .push(self.read.next().ok_or(Error::EofWhileParsingValue)??);
+        }
+        Ok(())
     }
 
     fn capture_byte_string_len(&mut self, buf: &mut Vec<u8>) -> Result<usize> {
@@ -326,12 +340,12 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     {
         match self.parse_peek()? {
             b'0'..=b'9' => {
-                let bytes = self.parse_bytes()?;
-                visitor.visit_byte_buf(bytes)
+                self.parse_bytes()?;
+                visitor.visit_bytes(&self.buf)
             }
             b'i' => {
                 self.parse_next()?;
-                let num_str = self.parse_integer_string()?;
+                let num_str = self.parse_integer_str()?;
                 if num_str.starts_with('-') {
                     visitor.visit_i64(num_str.parse()?)
                 } else {
@@ -376,7 +390,7 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'i' => {
                 self.parse_next()?;
-                let num_str = self.parse_integer_string()?;
+                let num_str = self.parse_integer_str()?;
                 if num_str.starts_with('-') {
                     visitor.visit_i64(num_str.parse()?)
                 } else {
@@ -399,7 +413,7 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'i' => {
                 self.parse_next()?;
-                let num_str = self.parse_integer_string()?;
+                let num_str = self.parse_integer_str()?;
                 if num_str.starts_with('-') {
                     visitor.visit_i64(num_str.parse()?)
                 } else {
@@ -415,7 +429,7 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_string(visitor)
+        self.deserialize_str(visitor)
     }
 
     #[inline]
@@ -423,23 +437,23 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     where
         V: de::Visitor<'de>,
     {
-        self.deserialize_string(visitor)
+        match self.parse_peek()? {
+            b'0'..=b'9' => {
+                self.parse_bytes()?;
+                match core::str::from_utf8(&self.buf) {
+                    Ok(s) => visitor.visit_str(s),
+                    Err(_) => visitor.visit_bytes(&self.buf),
+                }
+            }
+            _ => Err(self.unexpected_type_err(&visitor)?),
+        }
     }
 
     fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        match self.parse_peek()? {
-            b'0'..=b'9' => {
-                let bytes = self.parse_bytes()?;
-                match String::from_utf8(bytes.clone()) {
-                    Ok(s) => visitor.visit_string(s),
-                    Err(_) => visitor.visit_byte_buf(bytes),
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
+        self.deserialize_str(visitor)
     }
 
     #[inline]
@@ -456,8 +470,8 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
     {
         match self.parse_peek()? {
             b'0'..=b'9' => {
-                let bytes = self.parse_bytes()?;
-                visitor.visit_byte_buf(bytes)
+                self.parse_bytes()?;
+                visitor.visit_bytes(&self.buf)
             }
             b'i' => {
                 let mut bytes = Vec::new();
