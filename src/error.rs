@@ -10,7 +10,7 @@ use alloc::{
 #[cfg(feature = "std")]
 use std::{
     error, format, io,
-    string::{self, String, ToString},
+    string::{String, ToString},
 };
 
 use core::{
@@ -37,10 +37,6 @@ pub enum Error {
     ///
     /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
     Utf8Error(Utf8Error),
-    /// Error when decoding a byte string into a UTF-8 string.
-    ///
-    /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
-    FromUtf8Error(string::FromUtf8Error),
     /// When deserializing a byte string, the length was not a valid number.
     InvalidByteStrLen,
     /// When deserializing an integer, the integer contained non-number characters.
@@ -99,7 +95,6 @@ impl error::Error for Error {
             | Error::UnsupportedType
             | Error::ValueWithoutKey => None,
             Error::Utf8Error(err) => Some(err),
-            Error::FromUtf8Error(err) => Some(err),
             #[cfg(feature = "std")]
             Error::IoError(err) => Some(err),
             Error::ParseIntError(err) => Some(err),
@@ -114,7 +109,6 @@ impl Display for Error {
             Error::EofWhileParsingValue => f.write_str("eof while parsing value"),
             Error::ExpectedSomeValue => f.write_str("expected some value"),
             Error::Utf8Error(err) => Display::fmt(err, f),
-            Error::FromUtf8Error(err) => Display::fmt(err, f),
             Error::InvalidByteStrLen => f.write_str("invalid byte string length"),
             Error::InvalidInteger => f.write_str("invalid integer"),
             Error::InvalidDict => f.write_str("invalid dictionary"),
@@ -144,12 +138,6 @@ impl From<Error> for io::Error {
 impl From<Utf8Error> for Error {
     fn from(other: Utf8Error) -> Self {
         Error::Utf8Error(other)
-    }
-}
-
-impl From<string::FromUtf8Error> for Error {
-    fn from(other: string::FromUtf8Error) -> Self {
-        Error::FromUtf8Error(other)
     }
 }
 
