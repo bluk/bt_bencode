@@ -327,7 +327,7 @@ impl<'de, 'a, R: Read> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'0'..=b'9' => {
                 let bytes = self.parse_bytes()?;
-                visitor.visit_bytes(&bytes)
+                visitor.visit_byte_buf(bytes)
             }
             b'i' => {
                 self.parse_next()?;
