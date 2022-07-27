@@ -3,15 +3,17 @@
 use super::{Number, Value};
 use crate::error::Error;
 use serde::de::{
-    DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
+    DeserializeOwned, DeserializeSeed, Expected, IntoDeserializer, MapAccess, SeqAccess,
+    Unexpected, Visitor,
 };
 use serde::forward_to_deserialize_any;
 use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{collections::BTreeMap, vec, vec::Vec};
+use alloc::{borrow::Cow, collections::BTreeMap, vec, vec::Vec};
+use core::slice;
 #[cfg(feature = "std")]
-use std::{collections::BTreeMap, vec, vec::Vec};
+use std::{borrow::Cow, collections::BTreeMap, vec, vec::Vec};
 
 /// Deserializes an instance of `T` from a [Value].
 ///
@@ -24,6 +26,22 @@ where
     T: DeserializeOwned,
 {
     T::deserialize(value)
+}
+
+fn unexpected_type<E>(value: &Value, exp: &dyn Expected) -> E
+where
+    E: serde::de::Error,
+{
+    let unexpected = match value {
+        Value::ByteStr(bytes) => Unexpected::Bytes(bytes),
+        Value::Int(number) => match number {
+            Number::Signed(number) => Unexpected::Signed(*number),
+            Number::Unsigned(number) => Unexpected::Unsigned(*number),
+        },
+        Value::List(_) => Unexpected::Seq,
+        Value::Dict(_) => Unexpected::Map,
+    };
+    serde::de::Error::invalid_type(unexpected, exp)
 }
 
 impl<'de> serde::Deserializer<'de> for Value {
@@ -191,7 +209,9 @@ impl<'de> MapAccess<'de> for DictDeserializer {
         match self.iter.next() {
             Some((key, value)) => {
                 self.value = Some(value);
-                let key_de = DictKey { key };
+                let key_de = DictKey {
+                    key: Cow::Owned(key),
+                };
                 seed.deserialize(key_de).map(Some)
             }
             None => Ok(None),
@@ -216,18 +236,21 @@ impl<'de> MapAccess<'de> for DictDeserializer {
     }
 }
 
-struct DictKey {
-    key: ByteBuf,
+struct DictKey<'a> {
+    key: Cow<'a, ByteBuf>,
 }
 
-impl<'de> serde::Deserializer<'de> for DictKey {
+impl<'de> serde::Deserializer<'de> for DictKey<'de> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Error>
     where
         V: Visitor<'de>,
     {
-        visitor.visit_byte_buf(self.key.into_vec())
+        match self.key {
+            Cow::Borrowed(bytes) => visitor.visit_borrowed_bytes(bytes),
+            Cow::Owned(bytes) => visitor.visit_byte_buf(bytes.into_vec()),
+        }
     }
 
     #[inline]
@@ -254,6 +277,230 @@ impl<'de> serde::Deserializer<'de> for DictKey {
         bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 char str string
         bytes byte_buf unit unit_struct seq tuple
         tuple_struct map struct enum identifier ignored_any
+    }
+}
+
+impl<'de> serde::Deserializer<'de> for &'de Value {
+    type Error = Error;
+
+    fn deserialize_any<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            Value::ByteStr(bytes) => visitor.visit_borrowed_bytes(bytes),
+            Value::Int(n) => match n {
+                Number::Signed(s) => visitor.visit_i64(*s),
+                Number::Unsigned(u) => visitor.visit_u64(*u),
+            },
+            Value::List(l) => {
+                let len = l.len();
+
+                let mut deserializer = ListRefDeserializer::new(l);
+                let seq = visitor.visit_seq(&mut deserializer)?;
+                if deserializer.iter.len() == 0 {
+                    Ok(seq)
+                } else {
+                    Err(serde::de::Error::invalid_length(
+                        len,
+                        &"expected more elements to be consumed in list",
+                    ))
+                }
+            }
+            Value::Dict(d) => {
+                let len = d.len();
+                let mut deserializer = DictRefDeserializer::new(d);
+                let map = visitor.visit_map(&mut deserializer)?;
+                if deserializer.iter.len() == 0 {
+                    Ok(map)
+                } else {
+                    Err(serde::de::Error::invalid_length(
+                        len,
+                        &"expected more elements to be consumed in dict",
+                    ))
+                }
+            }
+        }
+    }
+
+    forward_to_deserialize_any! {
+        bool f32 f64 unit unit_struct
+
+        i8 i16 i32 i64
+        u8 u16 u32 u64
+
+        seq map
+
+        struct enum identifier ignored_any
+    }
+
+    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            Value::ByteStr(bytes) => match core::str::from_utf8(bytes) {
+                Ok(s) => visitor.visit_borrowed_str(s),
+                Err(_) => visitor.visit_borrowed_bytes(bytes),
+            },
+            _ => Err(unexpected_type(self, &visitor)),
+        }
+    }
+
+    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_str(visitor)
+    }
+
+    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        match self {
+            Value::ByteStr(bytes) => visitor.visit_borrowed_bytes(bytes),
+            _ => Err(unexpected_type(self, &visitor)),
+        }
+    }
+
+    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_bytes(visitor)
+    }
+
+    #[inline]
+    fn deserialize_option<V>(self, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_some(self)
+    }
+
+    #[inline]
+    fn deserialize_newtype_struct<V>(
+        self,
+        _name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        visitor.visit_newtype_struct(self)
+    }
+
+    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_tuple_struct<V>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value, Self::Error>
+    where
+        V: Visitor<'de>,
+    {
+        self.deserialize_seq(visitor)
+    }
+
+    fn is_human_readable(&self) -> bool {
+        false
+    }
+}
+
+struct ListRefDeserializer<'a> {
+    iter: slice::Iter<'a, Value>,
+}
+
+impl<'a> ListRefDeserializer<'a> {
+    fn new(slice: &'a [Value]) -> Self {
+        ListRefDeserializer { iter: slice.iter() }
+    }
+}
+
+impl<'a> SeqAccess<'a> for ListRefDeserializer<'a> {
+    type Error = Error;
+
+    fn next_element_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
+    where
+        T: DeserializeSeed<'a>,
+    {
+        match self.iter.next() {
+            Some(value) => seed.deserialize(value).map(Some),
+            None => Ok(None),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
+        }
+    }
+}
+
+struct DictRefDeserializer<'a> {
+    iter: <&'a BTreeMap<ByteBuf, Value> as IntoIterator>::IntoIter,
+    value: Option<&'a Value>,
+}
+
+impl<'a> DictRefDeserializer<'a> {
+    fn new(map: &'a BTreeMap<ByteBuf, Value>) -> Self {
+        DictRefDeserializer {
+            iter: map.iter(),
+            value: None,
+        }
+    }
+}
+
+impl<'a> MapAccess<'a> for DictRefDeserializer<'a> {
+    type Error = Error;
+
+    fn next_key_seed<T>(&mut self, seed: T) -> Result<Option<T::Value>, Error>
+    where
+        T: DeserializeSeed<'a>,
+    {
+        match self.iter.next() {
+            Some((key, value)) => {
+                self.value = Some(value);
+                let key_de = DictKey {
+                    key: Cow::Borrowed(key),
+                };
+                seed.deserialize(key_de).map(Some)
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn next_value_seed<T>(&mut self, seed: T) -> Result<T::Value, Error>
+    where
+        T: DeserializeSeed<'a>,
+    {
+        match self.value.take() {
+            Some(value) => seed.deserialize(value),
+            None => Err(serde::de::Error::custom("value is missing")),
+        }
+    }
+
+    fn size_hint(&self) -> Option<usize> {
+        match self.iter.size_hint() {
+            (lower, Some(upper)) if lower == upper => Some(upper),
+            _ => None,
+        }
     }
 }
 
@@ -340,6 +587,29 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_dict_1_borrowed_value() -> Result<()> {
+        use serde::Deserialize;
+
+        let mut m = BTreeMap::new();
+        m.insert(
+            ByteBuf::from(String::from("cow")),
+            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+        );
+        m.insert(
+            ByteBuf::from(String::from("spam")),
+            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+        );
+        let d = Value::Dict(m);
+        let d = BTreeMap::<&str, &str>::deserialize(&d)?;
+
+        let mut expected = BTreeMap::new();
+        expected.insert("cow", "moo");
+        expected.insert("spam", "eggs");
+        assert_eq!(d, expected);
+        Ok(())
+    }
+
+    #[test]
     fn test_deserialize_dict_2() -> Result<()> {
         let mut m = BTreeMap::new();
         m.insert(
@@ -357,6 +627,48 @@ mod tests {
             String::from("spam"),
             vec![String::from("a"), String::from("b")],
         );
+        assert_eq!(d, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_dict_2_borrowed_value() -> Result<()> {
+        use serde::Deserialize;
+
+        let mut m = BTreeMap::new();
+        m.insert(
+            ByteBuf::from(String::from("spam")),
+            Value::List(vec![
+                Value::ByteStr(ByteBuf::from(String::from("a"))),
+                Value::ByteStr(ByteBuf::from(String::from("b"))),
+            ]),
+        );
+        let d = Value::Dict(m);
+        let d = BTreeMap::<&str, Vec<&str>>::deserialize(&d)?;
+
+        let mut expected = BTreeMap::new();
+        expected.insert("spam", vec!["a", "b"]);
+        assert_eq!(d, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_dict_2_borrowed_value_as_bytes() -> Result<()> {
+        use serde::Deserialize;
+
+        let mut m = BTreeMap::new();
+        m.insert(
+            ByteBuf::from(String::from("spam")),
+            Value::List(vec![
+                Value::ByteStr(ByteBuf::from(String::from("a"))),
+                Value::ByteStr(ByteBuf::from(String::from("b"))),
+            ]),
+        );
+        let d = Value::Dict(m);
+        let d = BTreeMap::<&str, Vec<&[u8]>>::deserialize(&d)?;
+
+        let mut expected = BTreeMap::new();
+        expected.insert("spam", vec!["a".as_bytes(), "b".as_bytes()]);
         assert_eq!(d, expected);
         Ok(())
     }
