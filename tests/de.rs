@@ -63,7 +63,10 @@ fn test_deserialize_info_hash() -> Result<(), Error> {
 
     assert_eq!(
         orig_info_hash.as_slice(),
-        hex_literal::hex!("b44a0e20fa5b7cecb77156333b4268dfd7c30afb")
+        &[
+            0xb4, 0x4a, 0x0e, 0x20, 0xfa, 0x5b, 0x7c, 0xec, 0xb7, 0x71, 0x56, 0x33, 0x3b, 0x42,
+            0x68, 0xdf, 0xd7, 0xc3, 0x0a, 0xfb
+        ]
     );
 
     let info: Value = bt_bencode::from_slice(&metainfo.info).unwrap();
@@ -121,7 +124,10 @@ fn test_deserialize_info_hash_borrowed() -> Result<(), Error> {
 
     assert_eq!(
         orig_info_hash.as_slice(),
-        hex_literal::hex!("b44a0e20fa5b7cecb77156333b4268dfd7c30afb")
+        &[
+            0xb4, 0x4a, 0x0e, 0x20, 0xfa, 0x5b, 0x7c, 0xec, 0xb7, 0x71, 0x56, 0x33, 0x3b, 0x42,
+            0x68, 0xdf, 0xd7, 0xc3, 0x0a, 0xfb
+        ]
     );
 
     let info: Value = bt_bencode::from_slice(metainfo.info).unwrap();

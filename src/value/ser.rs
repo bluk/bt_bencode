@@ -467,9 +467,18 @@ mod tests {
     #[cfg(feature = "std")]
     use std::{string::String, vec};
 
+    macro_rules! assert_matches {
+        ($expr:expr, $value:pat) => {
+            assert!(match $expr {
+                $value => true,
+                _ => false,
+            })
+        };
+    }
+
     #[test]
     fn test_serialize_bool() {
-        assert!(matches!(to_value(&true), Err(Error::UnsupportedType)));
+        assert_matches!(to_value(&true), Err(Error::UnsupportedType));
     }
 
     #[test]
@@ -554,13 +563,13 @@ mod tests {
     #[test]
     fn test_serialize_f32() {
         let value: f32 = 2.0;
-        assert!(matches!(to_value(&value), Err(Error::UnsupportedType)));
+        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
     }
 
     #[test]
     fn test_serialize_f64() {
         let value: f64 = 2.0;
-        assert!(matches!(to_value(&value), Err(Error::UnsupportedType)));
+        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
     }
 
     #[test]
@@ -598,13 +607,13 @@ mod tests {
 
     #[test]
     fn test_serialize_unit() {
-        assert!(matches!(to_value(&()), Err(Error::UnsupportedType)));
+        assert_matches!(to_value(&()), Err(Error::UnsupportedType));
     }
 
     #[test]
     fn test_serialize_none() {
         let value: Option<i64> = None;
-        assert!(matches!(to_value(&value), Err(Error::UnsupportedType)));
+        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
     }
 
     #[test]
@@ -617,20 +626,20 @@ mod tests {
     fn test_serialize_unit_struct() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_unit_struct("Nothing"),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]
     fn test_serialize_unit_variant() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_unit_variant("Nothing", 0, "Case"),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]
@@ -644,10 +653,10 @@ mod tests {
     fn test_serialize_newtype_variant() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_unit_variant("Nothing", 0, "Case"),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]
@@ -673,40 +682,37 @@ mod tests {
     fn test_serialize_tuple() {
         use serde::Serializer;
 
-        assert!(matches!(
-            Serializer.serialize_tuple(0),
-            Err(Error::UnsupportedType)
-        ));
+        assert_matches!(Serializer.serialize_tuple(0), Err(Error::UnsupportedType));
     }
 
     #[test]
     fn test_serialize_tuple_struct() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_tuple_struct("Tuple Struct", 2),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]
     fn test_serialize_tuple_variant() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_tuple_variant("Tuple Variant", 2, "Case", 1),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]
     fn test_serialize_struct_variant() {
         use serde::Serializer;
 
-        assert!(matches!(
+        assert_matches!(
             Serializer.serialize_struct_variant("Struct Variant", 2, "Case", 1),
             Err(Error::UnsupportedType)
-        ));
+        );
     }
 
     #[test]

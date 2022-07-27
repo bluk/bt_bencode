@@ -17,16 +17,16 @@ include = [
 ]
 keywords = ["bencode", "bittorrent", "torrent", "serialization", "serde"]
 categories = ["encoding", "no-std"]
+rust-version = "1.36.0"
 
 [dependencies]
 serde = {version = "1", default-features = false }
 serde_bytes = { version = "0.11", default-features = false }
-itoa = {version = "1.0.1", default-features = false }
+itoa = {version = "1", default-features = false }
 
 [dev-dependencies]
 serde_derive = "1"
 sha1 = "0.10.1"
-hex-literal = "0.3.4"
 
 [features]
 default = ["std"]

@@ -40,7 +40,6 @@ struct Info<'a> {
 
 let info: Info = bt_bencode::from_slice(&serialized_bytes)?;
 assert_eq!(info.url, "https://example.com/");
-# Ok::<(), bt_bencode::Error>(())
 ```
 
 An example deserializing from a slice of bytes into a general `Value`
@@ -73,7 +72,6 @@ assert_eq!(
 let info: Info = bt_bencode::from_value(value)?;
 assert_eq!(info.t, "query");
 assert_eq!(info.url, "https://example.com/");
-# Ok::<(), bt_bencode::Error>(())
 ```
 
 ## License
