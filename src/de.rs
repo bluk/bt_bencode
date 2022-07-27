@@ -158,6 +158,7 @@ impl<'a> Deserializer<read::SliceRead<'a>> {
 
 macro_rules! forward_deserialize_signed_integer {
     ($method:ident) => {
+        #[inline]
         fn $method<V>(self, visitor: V) -> Result<V::Value>
         where
             V: de::Visitor<'de>,
@@ -169,6 +170,7 @@ macro_rules! forward_deserialize_signed_integer {
 
 macro_rules! forward_deserialize_unsigned_integer {
     ($method:ident) => {
+        #[inline]
         fn $method<V>(self, visitor: V) -> Result<V::Value>
         where
             V: de::Visitor<'de>,
@@ -181,7 +183,6 @@ macro_rules! forward_deserialize_unsigned_integer {
 impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
     type Error = Error;
 
-    #[inline]
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -206,7 +207,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
             }
             b'l' => {
                 self.parse_next()?;
-                let ret = visitor.visit_seq(SeqAccess::new(self));
+                let ret = visitor.visit_seq(SeqAccess { de: self });
                 match (ret, self.on_end_seq()) {
                     (Ok(ret), Ok(())) => Ok(ret),
                     (Err(err), _) | (_, Err(err)) => Err(err),
@@ -214,7 +215,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
             }
             b'd' => {
                 self.parse_next()?;
-                let ret = visitor.visit_map(MapAccess::new(self));
+                let ret = visitor.visit_map(MapAccess { de: self });
                 match (ret, self.on_end_map()) {
                     (Ok(ret), Ok(())) => Ok(ret),
                     (Err(err), _) | (_, Err(err)) => Err(err),
@@ -227,6 +228,8 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
     forward_to_deserialize_any! {
         bool f32 f64 unit unit_struct
 
+        char str string
+
         struct enum identifier ignored_any
     }
 
@@ -234,7 +237,6 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
     forward_deserialize_signed_integer!(deserialize_i16);
     forward_deserialize_signed_integer!(deserialize_i32);
 
-    #[inline]
     fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -258,69 +260,32 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
     forward_deserialize_unsigned_integer!(deserialize_u16);
     forward_deserialize_unsigned_integer!(deserialize_u32);
 
-    #[inline]
     fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
-        match self.parse_peek()? {
-            b'i' => {
-                self.parse_next()?;
-                self.buf.clear();
-                let num_str = self.read.parse_integer(&mut self.buf)?;
-                if num_str.starts_with('-') {
-                    visitor.visit_i64(num_str.parse()?)
-                } else {
-                    visitor.visit_u64(num_str.parse()?)
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
+        // The implementation should be the same as i64 for this data model
+        self.deserialize_i64(visitor)
     }
 
-    #[inline]
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    #[inline]
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.parse_peek()? {
-            b'0'..=b'9' => {
-                self.buf.clear();
-                match self.read.parse_byte_str(&mut self.buf)? {
-                    Ref::Source(bytes) => match core::str::from_utf8(bytes) {
-                        Ok(s) => visitor.visit_borrowed_str(s),
-                        Err(_) => visitor.visit_borrowed_bytes(bytes),
-                    },
-                    Ref::Buffer(bytes) => match core::str::from_utf8(bytes) {
-                        Ok(s) => visitor.visit_str(s),
-                        Err(_) => visitor.visit_bytes(bytes),
-                    },
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    #[inline]
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        // The hint is that the next value should be in the form of bytes.
+        //
+        // For a byte string value, the parsed byte string is returned (removing
+        // the preceding length and `:`).
+        //
+        // If the next value is any other type, then capture the "raw" byte
+        // representation of the value. For example, an integer value would
+        // return the bytes for `i1234e` which includes the `i` and `e` encoding
+        // bytes.
+        //
+        // The idea is to allow the capture of the raw representation of a field
+        // as-is. The primary use case is to capture the `info` value in a
+        // BitTorrent metainfo. The `info` value would be captured as-is without
+        // parsing which allows the infohash to be generated according to the specification.
         match self.parse_peek()? {
             b'0'..=b'9' => {
                 self.buf.clear();
@@ -354,6 +319,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         }
     }
 
+    #[inline]
     fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -384,7 +350,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'l' => {
                 self.parse_next()?;
-                let ret = visitor.visit_seq(SeqAccess::new(self));
+                let ret = visitor.visit_seq(SeqAccess { de: self });
                 match (ret, self.on_end_seq()) {
                     (Ok(ret), Ok(())) => Ok(ret),
                     (Err(err), _) | (_, Err(err)) => Err(err),
@@ -394,6 +360,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         }
     }
 
+    #[inline]
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
@@ -401,6 +368,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         self.deserialize_seq(visitor)
     }
 
+    #[inline]
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
@@ -420,7 +388,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'd' => {
                 self.parse_next()?;
-                let ret = visitor.visit_map(MapAccess::new(self));
+                let ret = visitor.visit_map(MapAccess { de: self });
                 match (ret, self.on_end_map()) {
                     (Ok(ret), Ok(())) => Ok(ret),
                     (Err(err), _) | (_, Err(err)) => Err(err),
@@ -430,6 +398,7 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         }
     }
 
+    #[inline]
     fn is_human_readable(&self) -> bool {
         false
     }
@@ -438,12 +407,6 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
 #[derive(Debug)]
 struct SeqAccess<'a, R> {
     de: &'a mut Deserializer<R>,
-}
-
-impl<'a, R: 'a> SeqAccess<'a, R> {
-    fn new(de: &'a mut Deserializer<R>) -> Self {
-        SeqAccess { de }
-    }
 }
 
 impl<'de, 'a, R: Read<'de> + 'a> de::SeqAccess<'de> for SeqAccess<'a, R> {
@@ -465,12 +428,6 @@ struct MapAccess<'a, R> {
     de: &'a mut Deserializer<R>,
 }
 
-impl<'a, R: 'a> MapAccess<'a, R> {
-    fn new(de: &'a mut Deserializer<R>) -> Self {
-        MapAccess { de }
-    }
-}
-
 impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
     type Error = Error;
 
@@ -485,6 +442,7 @@ impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
         }
     }
 
+    #[inline]
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value>
     where
         V: de::DeserializeSeed<'de>,
@@ -509,47 +467,7 @@ where
     where
         V: de::Visitor<'de>,
     {
-        self.de.deserialize_bytes(visitor)
-    }
-
-    #[inline]
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.de.deserialize_char(visitor)
-    }
-
-    #[inline]
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.de.deserialize_str(visitor)
-    }
-
-    #[inline]
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.de.deserialize_string(visitor)
-    }
-
-    #[inline]
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.de.deserialize_bytes(visitor)
-    }
-
-    #[inline]
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.de.deserialize_byte_buf(visitor)
+        self.de.deserialize_any(visitor)
     }
 
     #[inline]
@@ -570,7 +488,7 @@ where
 
     forward_to_deserialize_any! {
         bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 unit unit_struct seq tuple tuple_struct map
-        enum struct identifier ignored_any
+        char str string bytes byte_buf enum struct identifier ignored_any
     }
 }
 

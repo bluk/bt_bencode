@@ -351,34 +351,42 @@ impl<'de> Deserialize<'de> for Value {
         impl<'de> Visitor<'de> for ValueVisitor {
             type Value = Value;
 
+            #[inline]
             fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 f.write_str("any valid Bencode value")
             }
 
+            #[inline]
             fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E> {
                 Ok(Value::Int(Number::Signed(value)))
             }
 
+            #[inline]
             fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E> {
                 Ok(Value::Int(Number::Unsigned(value)))
             }
 
+            #[inline]
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
                 Ok(Value::ByteStr(ByteBuf::from(String::from(value))))
             }
 
+            #[inline]
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
                 Ok(Value::ByteStr(ByteBuf::from(value)))
             }
 
+            #[inline]
             fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
                 Ok(Value::ByteStr(ByteBuf::from(value)))
             }
 
+            #[inline]
             fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E> {
                 Ok(Value::ByteStr(ByteBuf::from(value)))
             }
 
+            #[inline]
             fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
             where
                 D: serde::Deserializer<'de>,
@@ -391,6 +399,9 @@ impl<'de> Deserialize<'de> for Value {
                 V: SeqAccess<'de>,
             {
                 let mut list = Vec::new();
+                if let Some(size_hint) = visitor.size_hint() {
+                    list.reserve(size_hint);
+                }
                 while let Some(elem) = visitor.next_element()? {
                     list.push(elem);
                 }
@@ -438,11 +449,13 @@ pub use index::Index;
 
 impl Value {
     /// Used to get a reference to a value with an index.
+    #[inline]
     pub fn get<I: Index>(&self, index: I) -> Option<&Value> {
         index.index(self)
     }
 
     /// Used to get a mutable reference to a value with an index.
+    #[inline]
     pub fn get_mut<I: Index>(&mut self, index: I) -> Option<&mut Value> {
         index.index_mut(self)
     }

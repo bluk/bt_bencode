@@ -3,17 +3,16 @@
 use super::{Number, Value};
 use crate::error::Error;
 use serde::de::{
-    DeserializeOwned, DeserializeSeed, Expected, IntoDeserializer, MapAccess, SeqAccess,
-    Unexpected, Visitor,
+    DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
 };
 use serde::forward_to_deserialize_any;
 use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
-use alloc::{borrow::Cow, collections::BTreeMap, vec, vec::Vec};
+use alloc::{borrow::Cow, collections::BTreeMap, vec};
 use core::slice;
 #[cfg(feature = "std")]
-use std::{borrow::Cow, collections::BTreeMap, vec, vec::Vec};
+use std::{borrow::Cow, collections::BTreeMap, vec};
 
 /// Deserializes an instance of `T` from a [Value].
 ///
@@ -26,22 +25,6 @@ where
     T: DeserializeOwned,
 {
     T::deserialize(value)
-}
-
-fn unexpected_type<E>(value: &Value, exp: &dyn Expected) -> E
-where
-    E: serde::de::Error,
-{
-    let unexpected = match value {
-        Value::ByteStr(bytes) => Unexpected::Bytes(bytes),
-        Value::Int(number) => match number {
-            Number::Signed(number) => Unexpected::Signed(*number),
-            Number::Unsigned(number) => Unexpected::Unsigned(*number),
-        },
-        Value::List(_) => Unexpected::Seq,
-        Value::Dict(_) => Unexpected::Map,
-    };
-    serde::de::Error::invalid_type(unexpected, exp)
 }
 
 impl<'de> serde::Deserializer<'de> for Value {
@@ -60,7 +43,9 @@ impl<'de> serde::Deserializer<'de> for Value {
             Value::List(l) => {
                 let len = l.len();
 
-                let mut deserializer = ListDeserializer::new(l);
+                let mut deserializer = ListDeserializer {
+                    iter: l.into_iter(),
+                };
                 let seq = visitor.visit_seq(&mut deserializer)?;
                 if deserializer.iter.len() == 0 {
                     Ok(seq)
@@ -73,7 +58,10 @@ impl<'de> serde::Deserializer<'de> for Value {
             }
             Value::Dict(d) => {
                 let len = d.len();
-                let mut deserializer = DictDeserializer::new(d);
+                let mut deserializer = DictDeserializer {
+                    iter: d.into_iter(),
+                    value: None,
+                };
                 let map = visitor.visit_map(&mut deserializer)?;
                 if deserializer.iter.len() == 0 {
                     Ok(map)
@@ -120,6 +108,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         visitor.visit_newtype_struct(self)
     }
 
+    #[inline]
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -127,6 +116,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         self.deserialize_seq(visitor)
     }
 
+    #[inline]
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
@@ -139,6 +129,7 @@ impl<'de> serde::Deserializer<'de> for Value {
         self.deserialize_seq(visitor)
     }
 
+    #[inline]
     fn is_human_readable(&self) -> bool {
         false
     }
@@ -154,14 +145,6 @@ impl<'de> IntoDeserializer<'de, Error> for Value {
 
 struct ListDeserializer {
     iter: vec::IntoIter<Value>,
-}
-
-impl ListDeserializer {
-    fn new(vec: Vec<Value>) -> Self {
-        ListDeserializer {
-            iter: vec.into_iter(),
-        }
-    }
 }
 
 impl<'de> SeqAccess<'de> for ListDeserializer {
@@ -188,15 +171,6 @@ impl<'de> SeqAccess<'de> for ListDeserializer {
 struct DictDeserializer {
     iter: <BTreeMap<ByteBuf, Value> as IntoIterator>::IntoIter,
     value: Option<Value>,
-}
-
-impl DictDeserializer {
-    fn new(map: BTreeMap<ByteBuf, Value>) -> Self {
-        DictDeserializer {
-            iter: map.into_iter(),
-            value: None,
-        }
-    }
 }
 
 impl<'de> MapAccess<'de> for DictDeserializer {
@@ -296,7 +270,8 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
             Value::List(l) => {
                 let len = l.len();
 
-                let mut deserializer = ListRefDeserializer::new(l);
+                let mut deserializer = ListRefDeserializer { iter: l.iter() };
+
                 let seq = visitor.visit_seq(&mut deserializer)?;
                 if deserializer.iter.len() == 0 {
                     Ok(seq)
@@ -309,7 +284,11 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
             }
             Value::Dict(d) => {
                 let len = d.len();
-                let mut deserializer = DictRefDeserializer::new(d);
+                let mut deserializer = DictRefDeserializer {
+                    iter: d.iter(),
+                    value: None,
+                };
+
                 let map = visitor.visit_map(&mut deserializer)?;
                 if deserializer.iter.len() == 0 {
                     Ok(map)
@@ -329,53 +308,11 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
         i8 i16 i32 i64
         u8 u16 u32 u64
 
+        char str string bytes byte_buf
+
         seq map
 
         struct enum identifier ignored_any
-    }
-
-    fn deserialize_char<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_str<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self {
-            Value::ByteStr(bytes) => match core::str::from_utf8(bytes) {
-                Ok(s) => visitor.visit_borrowed_str(s),
-                Err(_) => visitor.visit_borrowed_bytes(bytes),
-            },
-            _ => Err(unexpected_type(self, &visitor)),
-        }
-    }
-
-    fn deserialize_string<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_str(visitor)
-    }
-
-    fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        match self {
-            Value::ByteStr(bytes) => visitor.visit_borrowed_bytes(bytes),
-            _ => Err(unexpected_type(self, &visitor)),
-        }
-    }
-
-    fn deserialize_byte_buf<V>(self, visitor: V) -> Result<V::Value, Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_bytes(visitor)
     }
 
     #[inline]
@@ -398,6 +335,7 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
         visitor.visit_newtype_struct(self)
     }
 
+    #[inline]
     fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
@@ -405,6 +343,7 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
         self.deserialize_seq(visitor)
     }
 
+    #[inline]
     fn deserialize_tuple_struct<V>(
         self,
         _name: &'static str,
@@ -417,6 +356,7 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
         self.deserialize_seq(visitor)
     }
 
+    #[inline]
     fn is_human_readable(&self) -> bool {
         false
     }
@@ -424,12 +364,6 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
 
 struct ListRefDeserializer<'a> {
     iter: slice::Iter<'a, Value>,
-}
-
-impl<'a> ListRefDeserializer<'a> {
-    fn new(slice: &'a [Value]) -> Self {
-        ListRefDeserializer { iter: slice.iter() }
-    }
 }
 
 impl<'a> SeqAccess<'a> for ListRefDeserializer<'a> {
@@ -456,15 +390,6 @@ impl<'a> SeqAccess<'a> for ListRefDeserializer<'a> {
 struct DictRefDeserializer<'a> {
     iter: <&'a BTreeMap<ByteBuf, Value> as IntoIterator>::IntoIter,
     value: Option<&'a Value>,
-}
-
-impl<'a> DictRefDeserializer<'a> {
-    fn new(map: &'a BTreeMap<ByteBuf, Value>) -> Self {
-        DictRefDeserializer {
-            iter: map.iter(),
-            value: None,
-        }
-    }
 }
 
 impl<'a> MapAccess<'a> for DictRefDeserializer<'a> {
@@ -510,9 +435,9 @@ mod tests {
     use crate::error::Result;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::{string::String, vec};
+    use alloc::{string::String, vec, vec::Vec};
     #[cfg(feature = "std")]
-    use std::{string::String, vec};
+    use std::{string::String, vec, vec::Vec};
 
     #[test]
     fn test_deserialize_string() -> Result<()> {
