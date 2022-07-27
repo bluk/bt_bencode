@@ -1,5 +1,8 @@
 name: Rust CI
 
+permissions:
+  contents: read
+
 on:
   push:
 
@@ -228,7 +231,4 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: Run cargo clippy
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
+        run: cargo clippy --all-targets --all-features -- -D warnings

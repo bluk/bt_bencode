@@ -1,5 +1,8 @@
 name: Rust Security Audit
 
+permissions:
+  contents: read
+
 on:
   push:
     paths:
