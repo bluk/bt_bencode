@@ -1,6 +1,27 @@
 # CHANGELOG
 
-## v0.6.1
+## [Unreleased]
+
+### Added
+
+* Allow deserialization from a borrowed `Value`.
+
+### Updated
+
+* In general, fewer allocations are made when parsing values.
+* **Breaking change**: Refactored the `Read` trait to allow borrowing against the original data.
+
+  ```
+  #[derive(Deserialize)]
+  struct Info<'a> {
+      name: Option<&'a str>,
+      pieces: &'a [u8],
+  }
+  ```
+
+  should work now. The data is borrowed from the original input.
+
+## [0.6.1] - 2022-03-31
 
 ### Updated
 
@@ -8,7 +29,7 @@
 * Add documentation to more items
 * Add #[must_use] to more functions
 
-## v0.6.0
+## [0.6.0] - 2022-03-21
 
 ### Added
 
@@ -18,19 +39,19 @@
 
   Thanks [@bheesham](https://github.com/bheesham).
 
-## v0.5.1
+## [0.5.1] - 2022-03-14
 
 ### Updated
 
 * Use `Bytes` for `Values::Dict` index access instead of allocating a `ByteBuf`.
 
-## v0.5.0
+## [0.5.0] - 2022-03-09
 
 ### Updated
 
 * Update to `itoa` version `1.0.1`.
 
-## v0.4.0
+## [0.4.0] - 2021-05-27
 
 ### Added
 
@@ -52,7 +73,7 @@
   (e.g. a dictionary) instead of a byte string which contains the raw encoded
   value.
 
-## v0.3.0
+## [0.3.0] - 2020-10-10
 
 ### Added
 
@@ -61,14 +82,25 @@
 * Add multiple `From` implementations for all the common primitive signed and
   unsigned integers to `Number`.
 
-## v0.2.0
+## [0.2.0] - 2020-02-20
 
 ### Added
 
 * `Value` type and related functions.
 
-## v0.1.0
+## [0.1.0] - 2020-02-20
 
 ### Added
 
 * `Serializer`, `Deserializer`, and related functions.
+
+
+[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/bluk/bt_bencode/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/bluk/bt_bencode/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/bluk/bt_bencode/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/bluk/bt_bencode/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/bluk/bt_bencode/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/bluk/bt_bencode/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/bluk/bt_bencode/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/bluk/bt_bencode/releases/tag/v0.1.0

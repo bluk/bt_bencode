@@ -1,4 +1,5 @@
 use bt_bencode::{Error, Value};
+use serde::Deserialize;
 use serde_derive::Deserialize;
 
 static TORRENT_BYTES: &[u8] = include_bytes!("ubuntu-20.04.4-live-server-amd64.iso.torrent");
@@ -106,6 +107,12 @@ fn test_deserialize_info_hash_borrowed() -> Result<(), Error> {
         info: &'a [u8],
     }
 
+    #[derive(Deserialize)]
+    struct Info<'a> {
+        name: Option<&'a str>,
+        pieces: &'a [u8],
+    }
+
     let metainfo: Metainfo = bt_bencode::from_slice(TORRENT_BYTES)?;
 
     let mut hasher = sha1::Sha1::new();
@@ -145,6 +152,11 @@ fn test_deserialize_info_hash_borrowed() -> Result<(), Error> {
         info.get("length").and_then(bt_bencode::Value::as_u64),
         Some(1_331_691_520)
     );
+
+    let info = Info::deserialize(&info)?;
+
+    assert_eq!(info.name, Some("ubuntu-20.04.4-live-server-amd64.iso"));
+    assert_eq!(info.pieces.len(), 101_600);
 
     Ok(())
 }

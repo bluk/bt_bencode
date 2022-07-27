@@ -5,6 +5,8 @@ encoding/decoding.  Bencode is primarily used in [BitTorrent][bep_0003] related
 applications.
 
 It uses the [Serde][serde] library to serialize and deserialize Bencode data.
+It is similar to [Serde JSON][serde_json] in terms of functionality and
+implementation.
 
 ## Documentation
 
@@ -32,8 +34,8 @@ dict.insert(String::from("url"), String::from("https://example.com/"));
 let serialized_bytes = bt_bencode::to_vec(&dict)?;
 
 #[derive(Deserialize)]
-struct Info {
-    url: String,
+struct Info<'a> {
+    url: &'a str,
 }
 
 let info: Info = bt_bencode::from_slice(&serialized_bytes)?;
@@ -90,4 +92,5 @@ dual licensed as above, without any additional terms or conditions.
 [wikipedia_bencode]: https://en.wikipedia.org/wiki/Bencode
 [bep_0003]: http://www.bittorrent.org/beps/bep_0003.html
 [serde]: https://serde.rs
+[serde_json]: https://github.com/serde-rs/json
 [docs_rs_bt_bencode]: https://docs.rs/bt_bencode/latest/bt_bencode/
