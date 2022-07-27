@@ -1,12 +1,13 @@
 //! [Read] trait and helpers to read bytes for the deserializer.
 
-#[cfg(feature = "std")]
-use crate::error::Error;
+use crate::error::{Error, Result};
 use core::ops::Deref;
-#[cfg(feature = "std")]
-use std::io;
 
-use crate::error::Result;
+#[cfg(all(feature = "alloc", not(feature = "std")))]
+use alloc::vec::Vec;
+
+#[cfg(feature = "std")]
+use std::{io, vec::Vec};
 
 /// A reference to borrowed data.
 ///

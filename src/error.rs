@@ -5,7 +5,7 @@ use serde::{de, ser};
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{
     format,
-    string::{self, String, ToString},
+    string::{String, ToString},
 };
 #[cfg(feature = "std")]
 use std::{

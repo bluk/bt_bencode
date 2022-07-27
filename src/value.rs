@@ -325,7 +325,7 @@ impl From<String> for Value {
 
 impl<V: Into<Value>> From<Vec<V>> for Value {
     fn from(other: Vec<V>) -> Value {
-        Value::List(other.into_iter().map(std::convert::Into::into).collect())
+        Value::List(other.into_iter().map(core::convert::Into::into).collect())
     }
 }
 

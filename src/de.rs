@@ -581,9 +581,9 @@ mod tests {
     use serde_derive::Deserialize;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
-    use alloc::collections::BTreeMap;
+    use alloc::{collections::BTreeMap, string::String, vec};
     #[cfg(feature = "std")]
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, string::String, vec};
 
     #[test]
     fn test_deserialize_str() -> Result<()> {
