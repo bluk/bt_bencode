@@ -2,21 +2,284 @@
 
 #[cfg(feature = "std")]
 use crate::error::Error;
+use core::ops::Deref;
 #[cfg(feature = "std")]
 use std::io;
 
 use crate::error::Result;
 
+/// A reference to borrowed data.
+///
+/// The variant determines if the slice comes from a long lived source (e.g. an
+/// existing byte array) or if it comes from a temporary buffer.
+///
+/// In the deserializer code, the different variants determine which visitor
+/// method to call (e.g. `visit_borrowed_str` vs. `visit_str`).  Each variant
+/// has a different lifetime which is what the compiler uses to ensure the data
+/// will live long enough.
+#[derive(Debug)]
+pub enum Ref<'a, 'b, T>
+where
+    T: 'static + ?Sized,
+{
+    /// Reference from the original source of data.
+    Source(&'a T),
+    /// Reference from the given data buffer.
+    Buffer(&'b T),
+}
+
+impl<'a, 'b, T> Deref for Ref<'a, 'b, T>
+where
+    T: 'static + ?Sized,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match *self {
+            Ref::Source(s) => s,
+            Ref::Buffer(b) => b,
+        }
+    }
+}
+
 /// Trait used by the [`de::Deserializer`][crate::de::Deserializer] to read bytes.
-pub trait Read {
+pub trait Read<'a> {
     /// Consumes and returns the next read byte.
     fn next(&mut self) -> Option<Result<u8>>;
+
     /// Returns the next byte but does not consume.
     ///
     /// Repeated peeks (with no [next()][Read::next] call) should return the same byte.
     fn peek(&mut self) -> Option<Result<u8>>;
+
     /// Returns the position in the stream of bytes.
     fn byte_offset(&self) -> usize;
+
+    /// Consumes and returns the next integer.
+    ///
+    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
+    /// The contents of the buffer is not guaranteed before or after the method is called.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_integer<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>> {
+        debug_assert!(buf.is_empty());
+
+        let start_idx = buf.len();
+
+        if self.peek().ok_or(Error::EofWhileParsingValue)?? == b'-' {
+            buf.push(b'-');
+            self.next().ok_or(Error::EofWhileParsingValue)??;
+        }
+
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => return Ok(Ref::Buffer(core::str::from_utf8(&buf[start_idx..])?)),
+                n @ b'0'..=b'9' => buf.push(n),
+                _ => return Err(Error::InvalidInteger),
+            }
+        }
+    }
+
+    /// Returns the next slice of data for the given length.
+    ///
+    /// If all of the data is already read and available to borrowed against,
+    /// the returned result could be a reference to the original underlying
+    /// data.
+    ///
+    /// If the data is not already available and needs to be buffered, the data
+    /// could be added to the given buffer parameter and a borrowed slice from
+    /// the buffer could be returned.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_byte_str<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        debug_assert!(buf.is_empty());
+
+        let len: usize;
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b':' => {
+                    len = core::str::from_utf8(buf)?.parse()?;
+                    break;
+                }
+                n @ b'0'..=b'9' => buf.push(n),
+                _ => return Err(Error::InvalidByteStrLen),
+            }
+        }
+
+        buf.clear();
+        buf.reserve(len);
+
+        for _ in 0..len {
+            buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+        }
+
+        Ok(Ref::Buffer(&buf[..]))
+    }
+
+    /// Consumes and returns the next integer raw encoding.
+    ///
+    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
+    /// The contents of the buffer is not guaranteed before or after the method is called.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_raw_integer<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = buf.len();
+        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+
+        match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            b'-' => {
+                buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+            }
+            b'0'..=b'9' => {}
+            _ => return Err(Error::InvalidInteger),
+        }
+
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => {
+                    buf.push(b'e');
+                    return Ok(Ref::Buffer(&buf[start_idx..]));
+                }
+                n @ b'0'..=b'9' => buf.push(n),
+                _ => return Err(Error::InvalidInteger),
+            }
+        }
+    }
+
+    /// Consumes and returns the next byte string raw encoding.
+    ///
+    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
+    /// The contents of the buffer is not guaranteed before or after the method is called.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_raw_byte_str<'b>(&mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = buf.len();
+        let len;
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b':' => {
+                    len = core::str::from_utf8(&buf[start_idx..])?.parse()?;
+                    buf.push(b':');
+                    break;
+                }
+                n @ b'0'..=b'9' => buf.push(n),
+                _ => return Err(Error::InvalidByteStrLen),
+            }
+        }
+
+        buf.reserve(len);
+        for _ in 0..len {
+            buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+        }
+        Ok(Ref::Buffer(&buf[start_idx..]))
+    }
+
+    /// Consumes and returns the next list raw encoding.
+    ///
+    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
+    /// The contents of the buffer is not guaranteed before or after the method is called.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_raw_list<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = buf.len();
+        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+
+        loop {
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => {
+                    buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+                    return Ok(Ref::Buffer(&buf[start_idx..]));
+                }
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                b'i' => {
+                    self.parse_raw_integer(buf)?;
+                }
+                b'l' => {
+                    self.parse_raw_list(buf)?;
+                }
+                b'd' => {
+                    self.parse_raw_dict(buf)?;
+                }
+                _ => return Err(Error::InvalidList),
+            }
+        }
+    }
+
+    /// Consumes and returns the next dictionary raw encoding.
+    ///
+    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
+    /// The contents of the buffer is not guaranteed before or after the method is called.
+    ///
+    /// # Errors
+    ///
+    /// Errors include:
+    ///
+    /// - malformatted input
+    /// - end of file
+    fn parse_raw_dict<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = buf.len();
+        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+
+        loop {
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                b'e' => {
+                    buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+                    return Ok(Ref::Buffer(&buf[start_idx..]));
+                }
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                b'i' => {
+                    self.parse_raw_integer(buf)?;
+                }
+                b'l' => {
+                    self.parse_raw_list(buf)?;
+                }
+                b'd' => {
+                    self.parse_raw_dict(buf)?;
+                }
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+        }
+    }
 }
 
 /// A wrapper to implement this crate's [Read] trait for [`std::io::Read`] trait implementations.
@@ -48,7 +311,7 @@ where
 }
 
 #[cfg(feature = "std")]
-impl<R> Read for IoRead<R>
+impl<'a, R> Read<'a> for IoRead<R>
 where
     R: io::Read,
 {
@@ -110,7 +373,7 @@ impl<'a> SliceRead<'a> {
     }
 }
 
-impl<'a> Read for SliceRead<'a> {
+impl<'a> Read<'a> for SliceRead<'a> {
     #[inline]
     fn next(&mut self) -> Option<Result<u8>> {
         if self.byte_offset < self.slice.len() {
@@ -134,5 +397,171 @@ impl<'a> Read for SliceRead<'a> {
     #[inline]
     fn byte_offset(&self) -> usize {
         self.byte_offset
+    }
+
+    #[inline]
+    fn parse_integer<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>> {
+        let start_idx = self.byte_offset;
+
+        match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            b'-' | b'0'..=b'9' => loop {
+                match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                    b'0'..=b'9' => {}
+                    b'e' => {
+                        return Ok(Ref::Source(core::str::from_utf8(
+                            &self.slice[start_idx..self.byte_offset - 1],
+                        )?));
+                    }
+                    _ => return Err(Error::InvalidInteger),
+                }
+            },
+            _ => Err(Error::InvalidInteger),
+        }
+    }
+
+    #[inline]
+    fn parse_byte_str<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = self.byte_offset;
+
+        let len: usize;
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b':' => {
+                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])?
+                        .parse()?;
+                    break;
+                }
+                b'0'..=b'9' => {}
+                _ => return Err(Error::InvalidByteStrLen),
+            }
+        }
+
+        let start_idx = self.byte_offset;
+        self.byte_offset += len;
+
+        let slice_len = self.slice.len();
+        if slice_len < self.byte_offset {
+            self.byte_offset = slice_len;
+            return Err(Error::EofWhileParsingValue);
+        }
+
+        Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]))
+    }
+
+    fn parse_raw_integer<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = self.byte_offset;
+
+        self.next().ok_or(Error::EofWhileParsingValue)??;
+
+        match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            b'-' => {
+                self.next().ok_or(Error::EofWhileParsingValue)??;
+            }
+            b'0'..=b'9' => {}
+            _ => return Err(Error::InvalidInteger),
+        }
+
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => {
+                    return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
+                }
+                b'0'..=b'9' => {}
+                _ => return Err(Error::InvalidInteger),
+            }
+        }
+    }
+
+    fn parse_raw_byte_str<'b>(&mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = self.byte_offset;
+
+        let len: usize;
+        loop {
+            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                b':' => {
+                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])?
+                        .parse()?;
+                    break;
+                }
+                b'0'..=b'9' => {}
+                _ => return Err(Error::InvalidByteStrLen),
+            }
+        }
+        self.byte_offset += len;
+
+        let slice_len = self.slice.len();
+        if slice_len < self.byte_offset {
+            self.byte_offset = slice_len;
+            return Err(Error::EofWhileParsingValue);
+        }
+
+        Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]))
+    }
+
+    fn parse_raw_list<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = self.byte_offset;
+
+        self.next().ok_or(Error::EofWhileParsingValue)??;
+
+        loop {
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => {
+                    self.next().ok_or(Error::EofWhileParsingValue)??;
+                    return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
+                }
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                b'i' => {
+                    self.parse_raw_integer(buf)?;
+                }
+                b'l' => {
+                    self.parse_raw_list(buf)?;
+                }
+                b'd' => {
+                    self.parse_raw_dict(buf)?;
+                }
+                _ => return Err(Error::InvalidList),
+            }
+        }
+    }
+
+    fn parse_raw_dict<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
+        let start_idx = self.byte_offset;
+
+        self.next().ok_or(Error::EofWhileParsingValue)??;
+
+        loop {
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'e' => {
+                    self.next().ok_or(Error::EofWhileParsingValue)??;
+                    return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
+                }
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+
+            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+                b'0'..=b'9' => {
+                    self.parse_raw_byte_str(buf)?;
+                }
+                b'i' => {
+                    self.parse_raw_integer(buf)?;
+                }
+                b'l' => {
+                    self.parse_raw_list(buf)?;
+                }
+                b'd' => {
+                    self.parse_raw_dict(buf)?;
+                }
+                _ => {
+                    return Err(Error::InvalidDict);
+                }
+            }
+        }
     }
 }

@@ -96,3 +96,55 @@ fn test_deserialize_info_hash() -> Result<(), Error> {
 
     Ok(())
 }
+
+#[test]
+fn test_deserialize_info_hash_borrowed() -> Result<(), Error> {
+    use sha1::Digest;
+
+    #[derive(Deserialize)]
+    struct Metainfo<'a> {
+        info: &'a [u8],
+    }
+
+    let metainfo: Metainfo = bt_bencode::from_slice(TORRENT_BYTES)?;
+
+    let mut hasher = sha1::Sha1::new();
+    hasher.update(&metainfo.info);
+    let orig_info_hash = hasher.finalize();
+
+    assert_eq!(
+        orig_info_hash.as_slice(),
+        hex_literal::hex!("b44a0e20fa5b7cecb77156333b4268dfd7c30afb")
+    );
+
+    let info: Value = bt_bencode::from_slice(metainfo.info).unwrap();
+
+    // Need to verify the value is actually a dictionary. The ByteBuf could have been any value.
+    assert!(info.is_dict());
+
+    // Verify that a round-trip decoding and encoding produces the same info hash.
+    // The re-encoding ensures that the original data was encoded correctly
+    // according to bencode rules (ordering of keys, no leading zeros, etc.)
+    let re_encoded_bytes: Vec<u8> = bt_bencode::to_vec(&info).unwrap();
+    let mut hasher = sha1::Sha1::new();
+    hasher.update(&re_encoded_bytes);
+    let re_encoded_info_hash = hasher.finalize();
+    assert_eq!(orig_info_hash, re_encoded_info_hash);
+
+    assert_eq!(
+        info.get("piece length").and_then(bt_bencode::Value::as_u64),
+        Some(262_144)
+    );
+    assert_eq!(
+        info.get("pieces")
+            .and_then(bt_bencode::Value::as_byte_str)
+            .map(|v| v.len()),
+        Some(101_600)
+    );
+    assert_eq!(
+        info.get("length").and_then(bt_bencode::Value::as_u64),
+        Some(1_331_691_520)
+    );
+
+    Ok(())
+}
