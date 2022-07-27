@@ -10,24 +10,7 @@ use alloc::{collections::BTreeMap, vec::Vec};
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, vec::Vec};
 
-/// Serializes an instance of `T` into a [Value].
-///
-/// # Errors
-///
-/// Serialization can fail if `T`'s implementation of
-/// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
-/// unsupported types for serialization, or if `T` contains a map with
-/// non-string keys.
-#[inline]
-pub fn to_value<T>(value: &T) -> Result<Value>
-where
-    T: ?Sized + Serialize,
-{
-    value.serialize(Serializer)
-}
-
-#[derive(Debug)]
-struct Serializer;
+pub(super) struct Serializer;
 
 impl ser::Serializer for Serializer {
     type Ok = Value;
@@ -228,7 +211,7 @@ impl ser::Serializer for Serializer {
     }
 }
 
-struct SerializeList {
+pub(super) struct SerializeList {
     list: Vec<Value>,
 }
 
@@ -241,7 +224,7 @@ impl ser::SerializeSeq for SerializeList {
     where
         T: ?Sized + Serialize,
     {
-        self.list.push(to_value(value)?);
+        self.list.push(super::to_value(value)?);
         Ok(())
     }
 
@@ -251,8 +234,7 @@ impl ser::SerializeSeq for SerializeList {
     }
 }
 
-#[derive(Debug)]
-struct SerializeDict {
+pub(super) struct SerializeDict {
     dict: BTreeMap<ByteBuf, Value>,
     current_key: Option<ByteBuf>,
 }
@@ -279,7 +261,7 @@ impl ser::SerializeMap for SerializeDict {
         T: ?Sized + Serialize,
     {
         let key = self.current_key.take().ok_or(Error::ValueWithoutKey)?;
-        let value = to_value(value)?;
+        let value = super::to_value(value)?;
         self.dict.insert(key, value);
         Ok(())
     }
@@ -300,7 +282,7 @@ impl ser::SerializeStruct for SerializeDict {
         T: ?Sized + Serialize,
     {
         let key = key.serialize(&mut DictKeySerializer)?;
-        let value = to_value(value)?;
+        let value = super::to_value(value)?;
         self.dict.insert(key, value);
         Ok(())
     }
@@ -311,7 +293,6 @@ impl ser::SerializeStruct for SerializeDict {
     }
 }
 
-#[derive(Debug)]
 struct DictKeySerializer;
 
 impl ser::Serializer for &mut DictKeySerializer {
@@ -478,6 +459,7 @@ impl ser::Serializer for &mut DictKeySerializer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::to_value;
     use serde_bytes::ByteBuf;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]

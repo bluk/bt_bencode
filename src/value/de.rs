@@ -2,9 +2,7 @@
 
 use super::{Number, Value};
 use crate::error::Error;
-use serde::de::{
-    DeserializeOwned, DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor,
-};
+use serde::de::{DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
 use serde_bytes::ByteBuf;
 
@@ -13,19 +11,6 @@ use alloc::{borrow::Cow, collections::BTreeMap, vec};
 use core::slice;
 #[cfg(feature = "std")]
 use std::{borrow::Cow, collections::BTreeMap, vec};
-
-/// Deserializes an instance of `T` from a [Value].
-///
-/// # Errors
-///
-/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
-/// into an instance of `T`, and other IO errors.
-pub fn from_value<T>(value: Value) -> Result<T, Error>
-where
-    T: DeserializeOwned,
-{
-    T::deserialize(value)
-}
 
 impl<'de> serde::Deserializer<'de> for Value {
     type Error = Error;
@@ -432,7 +417,7 @@ impl<'a> MapAccess<'a> for DictRefDeserializer<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::error::Result;
+    use crate::{error::Result, from_value};
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{string::String, vec, vec::Vec};

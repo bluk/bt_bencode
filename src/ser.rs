@@ -423,7 +423,6 @@ where
     }
 }
 
-#[derive(Debug)]
 struct MapKeySerializer;
 
 impl<'a> ser::Serializer for &'a mut MapKeySerializer {

@@ -2,7 +2,7 @@
 
 use crate::error::Error;
 use serde::{
-    de::{Deserialize, MapAccess, SeqAccess, Visitor},
+    de::{Deserialize, DeserializeOwned, MapAccess, SeqAccess, Visitor},
     ser::Serialize,
 };
 use serde_bytes::ByteBuf;
@@ -461,8 +461,37 @@ impl Value {
     }
 }
 
-pub use de::from_value;
-pub use ser::to_value;
+/// Deserializes an instance of `T` from a [Value].
+///
+/// # Errors
+///
+/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
+/// into an instance of `T`, and other IO errors.
+#[allow(clippy::module_name_repetitions)]
+#[inline]
+pub fn from_value<T>(value: Value) -> Result<T, Error>
+where
+    T: DeserializeOwned,
+{
+    T::deserialize(value)
+}
+
+/// Serializes an instance of `T` into a [Value].
+///
+/// # Errors
+///
+/// Serialization can fail if `T`'s implementation of
+/// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
+/// unsupported types for serialization, or if `T` contains a map with
+/// non-string keys.
+#[allow(clippy::module_name_repetitions)]
+#[inline]
+pub fn to_value<T>(value: &T) -> Result<Value, Error>
+where
+    T: ?Sized + Serialize,
+{
+    value.serialize(ser::Serializer)
+}
 
 #[cfg(test)]
 mod tests {
