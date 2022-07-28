@@ -90,8 +90,8 @@ where
     type Error = Error;
 
     type SerializeSeq = Self;
-    type SerializeTuple = ser::Impossible<(), Error>;
-    type SerializeTupleStruct = ser::Impossible<(), Error>;
+    type SerializeTuple = Self;
+    type SerializeTupleStruct = Self;
     type SerializeTupleVariant = ser::Impossible<(), Error>;
     type SerializeMap = SerializeMap<'a, W>;
     type SerializeStruct = SerializeMap<'a, W>;
@@ -244,17 +244,17 @@ where
     }
 
     #[inline]
-    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::UnsupportedType)
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple> {
+        self.serialize_seq(Some(len))
     }
 
     #[inline]
     fn serialize_tuple_struct(
         self,
         _name: &'static str,
-        _len: usize,
+        len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        Err(Error::UnsupportedType)
+        self.serialize_seq(Some(len))
     }
 
     #[inline]
@@ -304,6 +304,50 @@ where
 
     #[inline]
     fn serialize_element<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(&mut **self)
+    }
+
+    #[inline]
+    fn end(self) -> Result<()> {
+        self.writer.write_all(b"e")?;
+        Ok(())
+    }
+}
+
+impl<'a, W> ser::SerializeTuple for &'a mut Serializer<W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    #[inline]
+    fn serialize_element<T>(&mut self, value: &T) -> Result<()>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(&mut **self)
+    }
+
+    #[inline]
+    fn end(self) -> Result<()> {
+        self.writer.write_all(b"e")?;
+        Ok(())
+    }
+}
+
+impl<'a, W> ser::SerializeTupleStruct for &'a mut Serializer<W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    #[inline]
+    fn serialize_field<T>(&mut self, value: &T) -> Result<()>
     where
         T: ?Sized + Serialize,
     {
@@ -809,23 +853,20 @@ mod tests {
 
     #[test]
     fn test_serialize_tuple() {
-        use serde::Serializer;
-
-        let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_tuple(0),
-            Err(Error::UnsupportedType)
+        assert_eq!(
+            to_vec(&(201, "spam")).unwrap(),
+            String::from("li201e4:spame").into_bytes()
         );
     }
 
     #[test]
     fn test_serialize_tuple_struct() {
-        use serde::Serializer;
+        #[derive(serde_derive::Serialize)]
+        struct S<'a>(i64, &'a str);
 
-        let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_tuple_struct("Tuple Struct", 2),
-            Err(Error::UnsupportedType)
+        assert_eq!(
+            to_vec(&S(201, "spam")).unwrap(),
+            String::from("li201e4:spame").into_bytes()
         );
     }
 

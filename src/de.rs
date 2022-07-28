@@ -563,6 +563,25 @@ mod tests {
     }
 
     #[test]
+    fn test_deserialize_list_as_tuple() -> Result<()> {
+        let input = "li123e4:eggse";
+        let v: (i64, &str) = from_slice(input.as_bytes())?;
+        assert_eq!(v, (123, "eggs"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_list_as_struct_tuple() -> Result<()> {
+        #[derive(Debug, serde_derive::Deserialize, PartialEq, Eq)]
+        struct S<'a>(i64, &'a str);
+
+        let input = "li123e4:eggse";
+        let v: S<'_> = from_slice(input.as_bytes())?;
+        assert_eq!(v, S(123, "eggs"));
+        Ok(())
+    }
+
+    #[test]
     fn test_deserialize_dict_1() -> Result<()> {
         let input = "d3:cow3:moo4:spam4:eggse";
         let m: BTreeMap<String, String> = from_slice(input.as_bytes())?;
