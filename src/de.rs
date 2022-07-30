@@ -153,19 +153,15 @@ where
             }
             b'i' => {
                 self.parse_next()?;
-                self.buf.clear();
-                let num_str = self.read.parse_integer(&mut self.buf)?;
-                if num_str.starts_with('-') {
-                    Ok(de::Error::invalid_type(
-                        Unexpected::Signed(num_str.parse().map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
-                        })?),
-                        exp,
-                    ))
+                let (is_positive, num) = self.parse_integer()?;
+                if is_positive {
+                    Ok(de::Error::invalid_type(Unexpected::Unsigned(num), exp))
                 } else {
+                    use core::convert::TryFrom;
+
                     Ok(de::Error::invalid_type(
-                        Unexpected::Unsigned(num_str.parse().map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                        Unexpected::Signed(-i64::try_from(num).map_err(|_| {
+                            Error::new(ErrorKind::InvalidInteger, self.read.byte_offset())
                         })?),
                         exp,
                     ))
@@ -192,6 +188,55 @@ where
         self.read
             .next()
             .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.read.byte_offset()))?
+    }
+
+    fn parse_integer(&mut self) -> Result<(bool, u64)> {
+        let peek = self
+            .read
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
+        let is_positive = if peek == b'-' {
+            self.read
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
+            false
+        } else {
+            true
+        };
+
+        let peek = self
+            .read
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
+        match peek {
+            b'0'..=b'9' => {}
+            _ => {
+                return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset()));
+            }
+        }
+
+        let mut value: u64 = 0;
+
+        loop {
+            match self
+                .read
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
+                b'e' => {
+                    return Ok((is_positive, value));
+                }
+                n @ b'0'..=b'9' => {
+                    value = value
+                        .checked_mul(10)
+                        .ok_or_else(|| Error::new(ErrorKind::InvalidInteger, self.byte_offset()))?;
+                    value = value
+                        .checked_add(u64::from(n - b'0'))
+                        .ok_or_else(|| Error::new(ErrorKind::InvalidInteger, self.byte_offset()))?;
+                }
+                _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
+            }
+        }
     }
 }
 
@@ -256,15 +301,15 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
             }
             b'i' => {
                 self.parse_next()?;
-                self.buf.clear();
-                let num_str = self.read.parse_integer(&mut self.buf)?;
-                if num_str.starts_with('-') {
-                    visitor.visit_i64(num_str.parse().map_err(|error| {
-                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
-                    })?)
+
+                let (is_positive, num) = self.parse_integer()?;
+                if is_positive {
+                    visitor.visit_u64(num)
                 } else {
-                    visitor.visit_u64(num_str.parse().map_err(|error| {
-                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    use core::convert::TryFrom;
+
+                    visitor.visit_i64(-i64::try_from(num).map_err(|_| {
+                        Error::new(ErrorKind::InvalidInteger, self.read.byte_offset())
                     })?)
                 }
             }
@@ -310,15 +355,15 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
         match self.parse_peek()? {
             b'i' => {
                 self.parse_next()?;
-                self.buf.clear();
-                let num_str = self.read.parse_integer(&mut self.buf)?;
-                if num_str.starts_with('-') {
-                    visitor.visit_i64(num_str.parse().map_err(|error| {
-                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
-                    })?)
+
+                let (is_positive, num) = self.parse_integer()?;
+                if is_positive {
+                    visitor.visit_u64(num)
                 } else {
-                    visitor.visit_u64(num_str.parse().map_err(|error| {
-                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    use core::convert::TryFrom;
+
+                    visitor.visit_i64(-i64::try_from(num).map_err(|_| {
+                        Error::new(ErrorKind::InvalidInteger, self.read.byte_offset())
                     })?)
                 }
             }
@@ -617,6 +662,30 @@ mod tests {
         let i: i64 = from_slice(input.as_bytes())?;
         assert_eq!(i, 0);
         Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_illegal_unsigned_int() {
+        let input = "ie";
+        let result: Result<u64> = from_slice(input.as_bytes());
+        let error = result.unwrap_err();
+        match error.kind() {
+            ErrorKind::InvalidInteger => {}
+            _ => panic!(),
+        }
+        assert_eq!(error.byte_offset(), 1);
+    }
+
+    #[test]
+    fn test_deserialize_illegal_signed_int() {
+        let input = "i-e";
+        let result: Result<i64> = from_slice(input.as_bytes());
+        let error = result.unwrap_err();
+        match error.kind() {
+            ErrorKind::InvalidInteger => {}
+            _ => panic!(),
+        }
+        assert_eq!(error.byte_offset(), 2);
     }
 
     #[test]

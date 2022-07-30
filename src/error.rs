@@ -17,8 +17,7 @@ use std::{
 
 use core::{
     fmt::{self, Display},
-    num, result,
-    str::Utf8Error,
+    result,
 };
 
 /// Alias for a [`Result`][std::result::Result] with a [`bt_bencode::Error`][Error] error type.
@@ -153,10 +152,6 @@ pub enum ErrorKind {
     EofWhileParsingValue,
     /// A value was expected but the deserializer did not find a valid bencoded value.
     ExpectedSomeValue,
-    /// Error when decoding a byte string into a UTF-8 string.
-    ///
-    /// Usually the error is encountered when a struct field or a dictionary key is deserialized as a String but the byte string is not valid UTF-8.
-    Utf8Error(Utf8Error),
     /// When deserializing a byte string, the length was not a valid number.
     InvalidByteStrLen,
     /// When deserializing an integer, the integer contained non-number characters.
@@ -176,12 +171,6 @@ pub enum ErrorKind {
     KeyMustBeAByteStr,
     /// A dictionary key was serialized but did not have a value for the key.
     KeyWithoutValue,
-    /// Error when deserializing a number.
-    ///
-    /// If the number could not be parsed correctly. Either the number itself
-    /// was invalid or the wrong type was used (a signed integer was encoded but
-    /// a [u64] was the expected type).
-    ParseIntError(num::ParseIntError),
     /// General serialization error.
     Serialize(String),
     /// Unparsed trailing data was detected
@@ -214,8 +203,6 @@ impl error::Error for ErrorKind {
             | ErrorKind::TrailingData
             | ErrorKind::UnsupportedType
             | ErrorKind::ValueWithoutKey => None,
-            ErrorKind::Utf8Error(err) => Some(err),
-            ErrorKind::ParseIntError(err) => Some(err),
             #[cfg(feature = "std")]
             ErrorKind::Io(source) => Some(source),
         }
@@ -228,14 +215,12 @@ impl Display for ErrorKind {
             ErrorKind::Deserialize(str) | ErrorKind::Serialize(str) => f.write_str(str),
             ErrorKind::EofWhileParsingValue => f.write_str("eof while parsing value"),
             ErrorKind::ExpectedSomeValue => f.write_str("expected some value"),
-            ErrorKind::Utf8Error(err) => Display::fmt(err, f),
             ErrorKind::InvalidByteStrLen => f.write_str("invalid byte string length"),
             ErrorKind::InvalidInteger => f.write_str("invalid integer"),
             ErrorKind::InvalidDict => f.write_str("invalid dictionary"),
             ErrorKind::InvalidList => f.write_str("invalid list"),
             ErrorKind::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
             ErrorKind::KeyWithoutValue => f.write_str("key without value"),
-            ErrorKind::ParseIntError(err) => Display::fmt(err, f),
             ErrorKind::TrailingData => f.write_str("trailing data error"),
             ErrorKind::UnsupportedType => f.write_str("unsupported type"),
             ErrorKind::ValueWithoutKey => f.write_str("value without key"),
@@ -251,14 +236,12 @@ impl fmt::Debug for ErrorKind {
             ErrorKind::Deserialize(str) | ErrorKind::Serialize(str) => f.write_str(str),
             ErrorKind::EofWhileParsingValue => f.write_str("eof while parsing value"),
             ErrorKind::ExpectedSomeValue => f.write_str("expected some value"),
-            ErrorKind::Utf8Error(err) => fmt::Debug::fmt(err, f),
             ErrorKind::InvalidByteStrLen => f.write_str("invalid byte string length"),
             ErrorKind::InvalidInteger => f.write_str("invalid integer"),
             ErrorKind::InvalidDict => f.write_str("invalid dictionary"),
             ErrorKind::InvalidList => f.write_str("invalid list"),
             ErrorKind::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
             ErrorKind::KeyWithoutValue => f.write_str("key without value"),
-            ErrorKind::ParseIntError(err) => fmt::Debug::fmt(err, f),
             ErrorKind::TrailingData => f.write_str("trailing data error"),
             ErrorKind::UnsupportedType => f.write_str("unsupported type"),
             ErrorKind::ValueWithoutKey => f.write_str("value without key"),

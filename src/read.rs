@@ -56,19 +56,6 @@ pub trait Read<'a> {
     /// Returns the position in the stream of bytes.
     fn byte_offset(&self) -> usize;
 
-    /// Consumes and returns the next integer.
-    ///
-    /// The buffer can be used as a temporary buffer for storing any bytes which need to be read.
-    /// The contents of the buffer is not guaranteed before or after the method is called.
-    ///
-    /// # Errors
-    ///
-    /// Errors include:
-    ///
-    /// - malformatted input
-    /// - end of file
-    fn parse_integer<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>>;
-
     /// Returns the next slice of data for the given length.
     ///
     /// If all of the data is already read and available to borrowed against,
@@ -211,65 +198,30 @@ where
         self.byte_offset
     }
 
-    fn parse_integer<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>> {
-        debug_assert!(buf.is_empty());
-
-        let start_idx = buf.len();
-
-        if self
-            .peek()
-            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
-            == b'-'
-        {
-            buf.push(b'-');
-            self.next()
-                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
-        }
-
-        loop {
-            match self
-                .next()
-                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
-            {
-                b'e' => {
-                    return Ok(Ref::Buffer(
-                        core::str::from_utf8(&buf[start_idx..]).map_err(|error| {
-                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                        })?,
-                    ))
-                }
-                n @ b'0'..=b'9' => buf.push(n),
-                _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
-            }
-        }
-    }
-
     fn parse_byte_str<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         debug_assert!(buf.is_empty());
 
-        let len: usize;
+        let mut len: usize = 0;
         loop {
             match self
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
             {
                 b':' => {
-                    len = core::str::from_utf8(buf)
-                        .map_err(|error| {
-                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                        })?
-                        .parse()
-                        .map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
-                        })?;
                     break;
                 }
-                n @ b'0'..=b'9' => buf.push(n),
+                n @ b'0'..=b'9' => {
+                    len = len.checked_mul(10).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                    len = len.checked_add(usize::from(n - b'0')).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                }
                 _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
 
-        buf.clear();
         buf.reserve(len);
 
         for _ in 0..len {
@@ -301,6 +253,16 @@ where
             _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
         }
 
+        match self
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+        {
+            b'0'..=b'9' => {}
+            _ => {
+                return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset()));
+            }
+        }
+
         loop {
             match self
                 .next()
@@ -318,25 +280,26 @@ where
 
     fn parse_raw_byte_str<'b>(&mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = buf.len();
-        let len;
+        let mut len: usize = 0;
         loop {
             match self
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
             {
                 b':' => {
-                    len = core::str::from_utf8(&buf[start_idx..])
-                        .map_err(|error| {
-                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                        })?
-                        .parse()
-                        .map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
-                        })?;
                     buf.push(b':');
                     break;
                 }
-                n @ b'0'..=b'9' => buf.push(n),
+                n @ b'0'..=b'9' => {
+                    buf.push(n);
+
+                    len = len.checked_mul(10).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                    len = len.checked_add(usize::from(n - b'0')).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                }
                 _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
@@ -481,55 +444,24 @@ impl<'a> Read<'a> for SliceRead<'a> {
     }
 
     #[inline]
-    fn parse_integer<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>> {
-        let start_idx = self.byte_offset;
-
-        match self
-            .next()
-            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
-        {
-            b'-' | b'0'..=b'9' => loop {
-                match self.next().ok_or_else(|| {
-                    Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
-                })?? {
-                    b'0'..=b'9' => {}
-                    b'e' => {
-                        return Ok(Ref::Source(
-                            core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
-                                .map_err(|error| {
-                                    Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                                })?,
-                        ));
-                    }
-                    _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
-                }
-            },
-            _ => Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
-        }
-    }
-
-    #[inline]
     fn parse_byte_str<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
-        let start_idx = self.byte_offset;
-
-        let len: usize;
+        let mut len: usize = 0;
         loop {
             match self
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
             {
                 b':' => {
-                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
-                        .map_err(|error| {
-                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                        })?
-                        .parse()
-                        .map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
-                        })?;
                     break;
                 }
-                b'0'..=b'9' => {}
+                n @ b'0'..=b'9' => {
+                    len = len.checked_mul(10).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                    len = len.checked_add(usize::from(n - b'0')).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                }
                 _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
@@ -568,6 +500,16 @@ impl<'a> Read<'a> for SliceRead<'a> {
             _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
         }
 
+        match self
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+        {
+            b'0'..=b'9' => {}
+            _ => {
+                return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset()));
+            }
+        }
+
         loop {
             match self
                 .next()
@@ -585,24 +527,23 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn parse_raw_byte_str<'b>(&mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = self.byte_offset;
 
-        let len: usize;
+        let mut len: usize = 0;
         loop {
             match self
                 .next()
                 .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
             {
                 b':' => {
-                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
-                        .map_err(|error| {
-                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
-                        })?
-                        .parse()
-                        .map_err(|error| {
-                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
-                        })?;
                     break;
                 }
-                b'0'..=b'9' => {}
+                n @ b'0'..=b'9' => {
+                    len = len.checked_mul(10).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                    len = len.checked_add(usize::from(n - b'0')).ok_or_else(|| {
+                        Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())
+                    })?;
+                }
                 _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
