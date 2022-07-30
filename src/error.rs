@@ -157,32 +157,30 @@ pub enum ErrorKind {
     /// When deserializing an integer, the integer contained non-number characters.
     InvalidInteger,
     /// When deserializing a dictionary, the dictionary was not encoded correctly.
-    ///
-    /// Usually, the error is because a dictionary was not a byte string.
     InvalidDict,
     /// When deserializing a list, the list was not encoded correctly.
-    ///
-    /// Usually the error is because an invalid encoded item in the list was found.
     InvalidList,
     #[cfg(feature = "std")]
     /// An I/O error.
     Io(std::io::Error),
     /// When deserializing, a dictionary key was found which was not a byte string.
     KeyMustBeAByteStr,
-    /// A dictionary key was serialized but did not have a value for the key.
+    /// A dictionary key was serialized but a call to serialize the key's value
+    /// was never made after.
     KeyWithoutValue,
     /// General serialization error.
     Serialize(String),
     /// Unparsed trailing data was detected
     TrailingData,
-    /// An unsupported type was used.
+    /// An unsupported type was used during serialization.
     ///
-    /// Usually the error is due to using unsupported types for keys (e.g. using
-    /// an integer type instead of a ByteStr).
+    /// Bencode only supports integers, byte strings, lists, and dictionaries.
+    /// Types like `bool`, `f64`, and enums are not supported in general.
+    ///
+    /// Dictionaries only support byte strings as keys.
     UnsupportedType,
-    /// A dictionary did not have a key but had a value.
-    ///
-    /// Should never occur.
+    /// A dictionary value was serialized but a call to serialize the key was
+    /// never made beforehand.
     ValueWithoutKey,
 }
 
