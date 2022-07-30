@@ -4,9 +4,10 @@
 
 ### Added
 
+* Add `Deserializer::byte_offset()` to return the byte offset in the underlying source. It may be useful if there is trailing data.
 * Serialize and deserialize tuples and tuple structs.
 * Allow deserialization from a borrowed `Value`.
-* Set supported Rust version to `1.36.0`. The MSRV is not guranteed due to dependencies being free to bump their version.
+* Set supported Rust version to `1.36.0`. The MSRV is not guaranteed due to dependencies being free to bump their version.
 
 ### Updated
 
@@ -21,7 +22,7 @@
   }
   ```
 
-  should work now. The data is borrowed from the original input.
+  should work now when using `from_slice`.
 
 ## [0.6.1] - 2022-03-31
 

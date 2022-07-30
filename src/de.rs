@@ -11,10 +11,15 @@ use std::{io, vec::Vec};
 
 /// Deserializes an instance of `T` from the bytes of an [`io::Read`] type.
 ///
+/// The entire [`io::Read`] source is consumed, and it is an error if there is
+/// trailing data. If trailing data is expected, then the [`Deserializer`]
+/// should be constructed directly. See [`Deserializer::byte_offset()`] for an
+/// example.
+///
 /// # Errors
 ///
 /// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
-/// into an instance of `T`, and other IO errors.
+/// into an instance of `T`, if there is trailing data, and other IO errors.
 #[cfg(feature = "std")]
 pub fn from_reader<R, T>(r: R) -> Result<T>
 where
@@ -29,10 +34,15 @@ where
 
 /// Deserializes an instance of `T` from a slice of bytes.
 ///
+/// The entire slice of bytes is consumed, and it is an error if there is
+/// trailing data. If trailing data is expected, then the [`Deserializer`]
+/// should be constructed directly. See [`Deserializer::byte_offset()`] for an
+/// example.
+///
 /// # Errors
 ///
 /// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
-/// into an instance of `T`, and other IO errors.
+/// into an instance of `T`, if there is trailing data, and other IO errors.
 pub fn from_slice<'a, T>(s: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
@@ -63,8 +73,43 @@ where
         }
     }
 
-    /// Should be called after a value from the source is deserialized to validate that the entire
-    /// source was read.
+    /// Returns the byte offset in the underlying readable source.
+    ///
+    /// For most use cases, the entire source should be consumed with no
+    /// trailing data (e.g. a metainfo file should not have extra data after the
+    /// bencoded data).
+    ///
+    /// If there is expected trailing data, then it may be helpful to know how
+    /// much data was read.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use serde::Deserialize as _;
+    /// use bt_bencode::Deserializer;
+    ///
+    /// let bytes = b"4:spameggs";
+    /// let mut de = Deserializer::from_slice(bytes.as_slice());
+    /// let value: &str = <&str>::deserialize(&mut de)?;
+    /// assert_eq!(value, "spam");
+    ///
+    /// // Do not call `de.end()` which check for trailing data
+    ///
+    /// assert_eq!(de.byte_offset(), 6);
+    /// assert_eq!(b"eggs", &bytes[de.byte_offset()..]);
+    ///
+    /// # Ok::<_, bt_bencode::Error>(())
+    /// ```
+    pub fn byte_offset(&self) -> usize {
+        self.read.byte_offset()
+    }
+
+    /// Should be called after a value from the source is deserialized to
+    /// validate that the entire source was read.
+    ///
+    /// If trailing data is expected, do not call this method. It may be
+    /// beneficial to know how much data was read. See
+    /// [`Deserializer::byte_offset()`].
     ///
     /// # Errors
     ///
