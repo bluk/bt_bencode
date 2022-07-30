@@ -88,12 +88,12 @@ where
     /// use serde::Deserialize as _;
     /// use bt_bencode::Deserializer;
     ///
-    /// let bytes = b"4:spameggs";
-    /// let mut de = Deserializer::from_slice(bytes.as_slice());
+    /// let bytes: &[u8] = b"4:spameggs";
+    /// let mut de = Deserializer::from_slice(bytes);
     /// let value: &str = <&str>::deserialize(&mut de)?;
     /// assert_eq!(value, "spam");
     ///
-    /// // Do not call `de.end()` which check for trailing data
+    /// // Do not call `de.end()` which checks for trailing data
     ///
     /// assert_eq!(de.byte_offset(), 6);
     /// assert_eq!(b"eggs", &bytes[de.byte_offset()..]);
