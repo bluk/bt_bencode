@@ -818,9 +818,9 @@ mod tests {
 
         let mut writer = Vec::new();
 
-        assert!(super::Serializer::new(&mut writer)
+        super::Serializer::new(&mut writer)
             .serialize_newtype_struct("Nothing", &2)
-            .is_ok());
+            .unwrap();
 
         assert_eq!(String::from_utf8(writer).unwrap(), "i2e");
     }

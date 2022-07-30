@@ -646,7 +646,7 @@ mod tests {
     fn test_serialize_newtype_struct() {
         use serde::Serializer;
 
-        assert!(Serializer.serialize_newtype_struct("Nothing", &2).is_ok());
+        Serializer.serialize_newtype_struct("Nothing", &2).unwrap();
     }
 
     #[test]
