@@ -1,6 +1,7 @@
 //! Represents valid Bencode data.
 
 use crate::error::Error;
+use core::fmt::Display;
 use serde::{
     de::{Deserialize, DeserializeOwned, MapAccess, SeqAccess, Visitor},
     ser::Serialize,
@@ -9,6 +10,7 @@ use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
+
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
 
@@ -19,6 +21,15 @@ pub enum Number {
     Signed(i64),
     /// An unsigned integer.
     Unsigned(u64),
+}
+
+impl Display for Number {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Number::Signed(arg0) => fmt::Display::fmt(arg0, f),
+            Number::Unsigned(arg0) => fmt::Display::fmt(arg0, f),
+        }
+    }
 }
 
 impl From<isize> for Number {
@@ -85,7 +96,7 @@ impl From<u8> for Number {
 ///
 /// It is useful when it is unknown what the data may contain (e.g. when different kinds of
 /// messages can be received in a network packet).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum Value {
     /// A byte string.
     ///
@@ -240,6 +251,42 @@ impl Value {
     #[must_use]
     pub fn is_dict(&self) -> bool {
         self.as_dict().is_some()
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        struct DebugByteStr<'a>(&'a ByteBuf);
+
+        impl<'a> fmt::Debug for DebugByteStr<'a> {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                match core::str::from_utf8(self.0) {
+                    Ok(key) => f.debug_tuple("ByteStr").field(&key).finish(),
+                    Err(_) => f.debug_tuple("ByteStr").field(&self.0).finish(),
+                }
+            }
+        }
+
+        match self {
+            Value::ByteStr(arg0) => fmt::Debug::fmt(&DebugByteStr(arg0), f),
+            Value::Int(arg0) => f.debug_tuple("Int").field(arg0).finish(),
+            Value::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
+            Value::Dict(arg0) => {
+                struct DebugDict<'a>(&'a BTreeMap<ByteBuf, Value>);
+
+                impl<'a> fmt::Debug for DebugDict<'a> {
+                    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        let mut d = &mut f.debug_map();
+                        for (key, value) in self.0 {
+                            d = d.entry(&DebugByteStr(key), value);
+                        }
+                        d.finish()
+                    }
+                }
+
+                f.debug_tuple("Dict").field(&DebugDict(arg0)).finish()
+            }
+        }
     }
 }
 
