@@ -1,6 +1,6 @@
 //! Deserializes Bencode data.
 
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use crate::read::{self, Read, Ref};
 use serde::de::{self, Expected, Unexpected};
 
@@ -116,7 +116,10 @@ where
     /// An error is returned if there are unconsumed bytes in the readable source.
     pub fn end(&mut self) -> Result<()> {
         match self.read.peek() {
-            Some(r) => r.and(Err(Error::TrailingData)),
+            Some(r) => r.and(Err(Error::new(
+                ErrorKind::TrailingData,
+                self.read.byte_offset(),
+            ))),
             None => Ok(()),
         }
     }
@@ -127,7 +130,7 @@ where
                 self.parse_next()?;
                 Ok(())
             }
-            _ => Err(Error::InvalidList),
+            _ => Err(Error::new(ErrorKind::InvalidList, self.read.byte_offset())),
         }
     }
 
@@ -137,7 +140,7 @@ where
                 self.parse_next()?;
                 Ok(())
             }
-            _ => Err(Error::InvalidDict),
+            _ => Err(Error::new(ErrorKind::InvalidDict, self.read.byte_offset())),
         }
     }
 
@@ -154,30 +157,41 @@ where
                 let num_str = self.read.parse_integer(&mut self.buf)?;
                 if num_str.starts_with('-') {
                     Ok(de::Error::invalid_type(
-                        Unexpected::Signed(num_str.parse()?),
+                        Unexpected::Signed(num_str.parse().map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                        })?),
                         exp,
                     ))
                 } else {
                     Ok(de::Error::invalid_type(
-                        Unexpected::Unsigned(num_str.parse()?),
+                        Unexpected::Unsigned(num_str.parse().map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                        })?),
                         exp,
                     ))
                 }
             }
             b'l' => Ok(de::Error::invalid_type(Unexpected::Seq, exp)),
             b'd' => Ok(de::Error::invalid_type(Unexpected::Map, exp)),
-            _ => Err(Error::ExpectedSomeValue),
+            _ => Err(Error::new(
+                ErrorKind::ExpectedSomeValue,
+                self.read.byte_offset(),
+            )),
         }
     }
 
     #[inline]
     fn parse_peek(&mut self) -> Result<u8> {
-        self.read.peek().ok_or(Error::EofWhileParsingValue)?
+        self.read
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.read.byte_offset()))?
     }
 
     #[inline]
     fn parse_next(&mut self) -> Result<u8> {
-        self.read.next().ok_or(Error::EofWhileParsingValue)?
+        self.read
+            .next()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.read.byte_offset()))?
     }
 }
 
@@ -245,9 +259,13 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
                 self.buf.clear();
                 let num_str = self.read.parse_integer(&mut self.buf)?;
                 if num_str.starts_with('-') {
-                    visitor.visit_i64(num_str.parse()?)
+                    visitor.visit_i64(num_str.parse().map_err(|error| {
+                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    })?)
                 } else {
-                    visitor.visit_u64(num_str.parse()?)
+                    visitor.visit_u64(num_str.parse().map_err(|error| {
+                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    })?)
                 }
             }
             b'l' => {
@@ -266,7 +284,10 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
                     (Err(err), _) | (_, Err(err)) => Err(err),
                 }
             }
-            _ => Err(Error::ExpectedSomeValue),
+            _ => Err(Error::new(
+                ErrorKind::ExpectedSomeValue,
+                self.read.byte_offset(),
+            )),
         }
     }
 
@@ -292,9 +313,13 @@ impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
                 self.buf.clear();
                 let num_str = self.read.parse_integer(&mut self.buf)?;
                 if num_str.starts_with('-') {
-                    visitor.visit_i64(num_str.parse()?)
+                    visitor.visit_i64(num_str.parse().map_err(|error| {
+                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    })?)
                 } else {
-                    visitor.visit_u64(num_str.parse()?)
+                    visitor.visit_u64(num_str.parse().map_err(|error| {
+                        Error::new(ErrorKind::ParseIntError(error), self.read.byte_offset())
+                    })?)
                 }
             }
             _ => Err(self.unexpected_type_err(&visitor)?),
@@ -481,7 +506,10 @@ impl<'de, 'a, R: Read<'de> + 'a> de::MapAccess<'de> for MapAccess<'a, R> {
         match self.de.parse_peek()? {
             b'0'..=b'9' => seed.deserialize(MapKey { de: &mut *self.de }).map(Some),
             b'e' => Ok(None),
-            _ => Err(Error::KeyMustBeAByteStr),
+            _ => Err(Error::new(
+                ErrorKind::KeyMustBeAByteStr,
+                self.de.read.byte_offset(),
+            )),
         }
     }
 

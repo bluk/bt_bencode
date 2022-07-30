@@ -1,6 +1,6 @@
 //! Serializes Bencode data.
 
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use serde::{ser, Serialize};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -8,9 +8,6 @@ use alloc::{collections::BTreeMap, vec::Vec};
 
 #[cfg(feature = "std")]
 use std::{collections::BTreeMap, io, vec::Vec};
-
-#[cfg(feature = "std")]
-use crate::write;
 
 use crate::write::Write;
 
@@ -29,7 +26,7 @@ where
     W: io::Write,
     T: ?Sized + Serialize,
 {
-    let mut ser = Serializer::new(write::IoWrite::new(writer));
+    let mut ser = Serializer::new(crate::write::IoWrite::new(writer));
     value.serialize(&mut ser)?;
     Ok(())
 }
@@ -99,7 +96,7 @@ where
 
     #[inline]
     fn serialize_bool(self, _value: bool) -> Result<()> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -152,12 +149,12 @@ where
 
     #[inline]
     fn serialize_f32(self, _value: f32) -> Result<()> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
     fn serialize_f64(self, _value: f64) -> Result<()> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -197,7 +194,7 @@ where
 
     #[inline]
     fn serialize_unit(self) -> Result<()> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -212,7 +209,7 @@ where
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<()> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -234,7 +231,7 @@ where
     where
         T: ?Sized + Serialize,
     {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -265,7 +262,7 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -287,7 +284,7 @@ where
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn is_human_readable(&self) -> bool {
@@ -386,7 +383,7 @@ where
     #[inline]
     fn end_map(&mut self) -> Result<()> {
         if self.current_key.is_some() {
-            return Err(Error::KeyWithoutValue);
+            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
         }
 
         for (k, v) in &self.entries {
@@ -411,7 +408,7 @@ where
         T: ?Sized + Serialize,
     {
         if self.current_key.is_some() {
-            return Err(Error::KeyWithoutValue);
+            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
         }
         self.current_key = Some(key.serialize(&mut MapKeySerializer {})?);
         Ok(())
@@ -422,7 +419,10 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let key = self.current_key.take().ok_or(Error::ValueWithoutKey)?;
+        let key = self
+            .current_key
+            .take()
+            .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
         let buf: Vec<u8> = Vec::new();
         let mut ser = Serializer::new(buf);
         value.serialize(&mut ser)?;
@@ -482,47 +482,47 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
     type SerializeStructVariant = ser::Impossible<Vec<u8>, Error>;
 
     fn serialize_bool(self, _value: bool) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i8(self, _value: i8) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i16(self, _value: i16) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i32(self, _value: i32) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i64(self, _value: i64) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u8(self, _value: u8) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u16(self, _value: u16) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u32(self, _value: u32) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u64(self, _value: u64) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_f32(self, _value: f32) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_f64(self, _value: f64) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_char(self, value: char) -> Result<Vec<u8>> {
@@ -543,7 +543,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
     }
 
     fn serialize_unit(self) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Vec<u8>> {
@@ -556,7 +556,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
@@ -564,7 +564,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _name: &'static str,
         _value: &T,
     ) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -574,23 +574,23 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _variant: &'static str,
         _value: &T,
     ) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_none(self) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<Vec<u8>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple(self, _size: usize) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple_struct(
@@ -598,7 +598,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple_variant(
@@ -608,11 +608,11 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_struct(
@@ -620,7 +620,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_struct_variant(
@@ -630,7 +630,7 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Vec<u8>, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 }
 
@@ -644,18 +644,21 @@ mod tests {
     #[cfg(feature = "std")]
     use std::string::String;
 
-    macro_rules! assert_matches {
-        ($expr:expr, $value:pat) => {
-            assert!(match $expr {
-                $value => true,
-                _ => false,
-            })
+    macro_rules! assert_is_unsupported_type {
+        ($e:expr) => {
+            match $e {
+                Ok(_) => unreachable!(),
+                Err(error) => match error.kind() {
+                    ErrorKind::UnsupportedType => {}
+                    _ => panic!("wrong error type"),
+                },
+            }
         };
     }
 
     #[test]
     fn test_serialize_bool() {
-        assert_matches!(to_vec(&true), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_vec(&true));
     }
 
     #[test]
@@ -737,13 +740,13 @@ mod tests {
     #[test]
     fn test_serialize_f32() {
         let value: f32 = 2.0;
-        assert_matches!(to_vec(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_vec(&value));
     }
 
     #[test]
     fn test_serialize_f64() {
         let value: f64 = 2.0;
-        assert_matches!(to_vec(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_vec(&value));
     }
 
     #[test]
@@ -775,13 +778,13 @@ mod tests {
 
     #[test]
     fn test_serialize_unit() {
-        assert_matches!(to_vec(&()), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_vec(&()));
     }
 
     #[test]
     fn test_serialize_none() {
         let value: Option<i64> = None;
-        assert_matches!(to_vec(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_vec(&value));
     }
 
     #[test]
@@ -795,9 +798,8 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_unit_struct("Nothing"),
-            Err(Error::UnsupportedType)
+        assert_is_unsupported_type!(
+            super::Serializer::new(&mut writer).serialize_unit_struct("Nothing")
         );
     }
 
@@ -806,9 +808,8 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case"),
-            Err(Error::UnsupportedType)
+        assert_is_unsupported_type!(
+            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case")
         );
     }
 
@@ -830,9 +831,8 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case"),
-            Err(Error::UnsupportedType)
+        assert_is_unsupported_type!(
+            super::Serializer::new(&mut writer).serialize_unit_variant("Nothing", 0, "Case")
         );
     }
 
@@ -875,15 +875,12 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert_matches!(
-            super::Serializer::new(&mut writer).serialize_tuple_variant(
-                "Tuple Variant",
-                2,
-                "Case",
-                1
-            ),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(super::Serializer::new(&mut writer).serialize_tuple_variant(
+            "Tuple Variant",
+            2,
+            "Case",
+            1
+        ));
     }
 
     #[test]
@@ -891,14 +888,13 @@ mod tests {
         use serde::Serializer;
 
         let mut writer = Vec::new();
-        assert_matches!(
+        assert_is_unsupported_type!(
             super::Serializer::new(&mut writer).serialize_struct_variant(
                 "Struct Variant",
                 2,
                 "Case",
                 1
-            ),
-            Err(Error::UnsupportedType)
+            )
         );
     }
 

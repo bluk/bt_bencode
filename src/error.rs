@@ -4,12 +4,14 @@ use serde::{de, ser};
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{
+    boxed::Box,
     format,
     string::{String, ToString},
 };
 #[cfg(feature = "std")]
 use std::{
-    error, format, io,
+    boxed::Box,
+    error, format,
     string::{String, ToString},
 };
 
@@ -22,9 +24,127 @@ use core::{
 /// Alias for a [`Result`][std::result::Result] with a [`bt_bencode::Error`][Error] error type.
 pub type Result<T> = result::Result<T, Error>;
 
+/// Errors during serialization and deserialization.
+pub struct Error {
+    inner: Box<ErrorImpl>,
+}
+
+impl Error {
+    /// Constructs an error with the kind and the byte offset where the error
+    /// was detected.
+    ///
+    /// A byte offset value of `0` indicates that the byte offset is either
+    /// unknown or not relevant.
+    #[must_use]
+    #[inline]
+    pub fn new(kind: ErrorKind, byte_offset: usize) -> Self {
+        Self {
+            inner: Box::new(ErrorImpl { kind, byte_offset }),
+        }
+    }
+
+    #[must_use]
+    #[inline]
+    pub(crate) fn with_kind(kind: ErrorKind) -> Self {
+        Self::new(kind, 0)
+    }
+
+    /// The kind of error encountered
+    #[must_use]
+    #[inline]
+    pub fn kind(&self) -> &ErrorKind {
+        &self.inner.kind
+    }
+
+    /// The byte offset where the error was detected.
+    ///
+    /// Usually, the byte offset is after the problem has been detected. For
+    /// instance, if an integer is not encoded correctly like `i12ae`, the byte
+    /// offset may be after the `a` byte is read.
+    #[must_use]
+    #[inline]
+    pub fn byte_offset(&self) -> usize {
+        self.inner.byte_offset
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.inner, f)
+    }
+}
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Debug::fmt(&self.inner, f)
+    }
+}
+
+impl de::StdError for Error {
+    #[cfg(feature = "std")]
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        self.inner.kind.source()
+    }
+}
+
+impl de::Error for Error {
+    fn custom<T: Display>(msg: T) -> Self {
+        Error::with_kind(ErrorKind::Deserialize(msg.to_string()))
+    }
+
+    fn invalid_type(unexp: de::Unexpected<'_>, exp: &dyn de::Expected) -> Self {
+        Error::with_kind(ErrorKind::Deserialize(format!(
+            "unexpected type error. invalid_type={}, expected_type={}",
+            unexp, exp
+        )))
+    }
+}
+
+impl ser::Error for Error {
+    fn custom<T: Display>(msg: T) -> Self {
+        Error::with_kind(ErrorKind::Serialize(msg.to_string()))
+    }
+}
+
+#[cfg(feature = "std")]
+impl From<Error> for std::io::Error {
+    fn from(error: Error) -> Self {
+        if let ErrorKind::Io(error) = error.inner.kind {
+            return error;
+        }
+        std::io::Error::new(std::io::ErrorKind::Other, error.to_string())
+    }
+}
+
+struct ErrorImpl {
+    kind: ErrorKind,
+    byte_offset: usize,
+}
+
+impl Display for ErrorImpl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.byte_offset == 0 {
+            Display::fmt(&self.kind, f)
+        } else {
+            write!(f, "{} at byte offset {}", self.kind, self.byte_offset)
+        }
+    }
+}
+
+impl fmt::Debug for ErrorImpl {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Error")
+            .field("kind", &self.kind)
+            .field("byte_offset", &self.byte_offset)
+            .finish()
+    }
+}
+
 /// All possible crate errors.
-#[derive(Debug)]
-pub enum Error {
+#[allow(clippy::module_name_repetitions)]
+// Should the type be non_exhaustive? Probably if this crate was version 1.0+ but would need to bump MSRV to 1.40.0
+// #[non_exhaustive]
+pub enum ErrorKind {
     /// General deserialization error.
     ///
     /// Usually the error is due to mismatching types (e.g. a struct was expecting an u64 but the data had a string).
@@ -49,9 +169,9 @@ pub enum Error {
     ///
     /// Usually the error is because an invalid encoded item in the list was found.
     InvalidList,
-    /// An I/O error.
     #[cfg(feature = "std")]
-    IoError(io::Error),
+    /// An I/O error.
+    Io(std::io::Error),
     /// When deserializing, a dictionary key was found which was not a byte string.
     KeyMustBeAByteStr,
     /// A dictionary key was serialized but did not have a value for the key.
@@ -78,93 +198,72 @@ pub enum Error {
 }
 
 #[cfg(feature = "std")]
-impl error::Error for Error {
+impl error::Error for ErrorKind {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
-            Error::Deserialize(_)
-            | Error::EofWhileParsingValue
-            | Error::ExpectedSomeValue
-            | Error::InvalidByteStrLen
-            | Error::InvalidInteger
-            | Error::InvalidDict
-            | Error::InvalidList
-            | Error::KeyMustBeAByteStr
-            | Error::KeyWithoutValue
-            | Error::Serialize(_)
-            | Error::TrailingData
-            | Error::UnsupportedType
-            | Error::ValueWithoutKey => None,
-            Error::Utf8Error(err) => Some(err),
+            ErrorKind::Deserialize(_)
+            | ErrorKind::EofWhileParsingValue
+            | ErrorKind::ExpectedSomeValue
+            | ErrorKind::InvalidByteStrLen
+            | ErrorKind::InvalidInteger
+            | ErrorKind::InvalidDict
+            | ErrorKind::InvalidList
+            | ErrorKind::KeyMustBeAByteStr
+            | ErrorKind::KeyWithoutValue
+            | ErrorKind::Serialize(_)
+            | ErrorKind::TrailingData
+            | ErrorKind::UnsupportedType
+            | ErrorKind::ValueWithoutKey => None,
+            ErrorKind::Utf8Error(err) => Some(err),
+            ErrorKind::ParseIntError(err) => Some(err),
             #[cfg(feature = "std")]
-            Error::IoError(err) => Some(err),
-            Error::ParseIntError(err) => Some(err),
+            ErrorKind::Io(source) => Some(source),
         }
     }
 }
 
-impl Display for Error {
+impl Display for ErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Error::Deserialize(str) | Error::Serialize(str) => f.write_str(str),
-            Error::EofWhileParsingValue => f.write_str("eof while parsing value"),
-            Error::ExpectedSomeValue => f.write_str("expected some value"),
-            Error::Utf8Error(err) => Display::fmt(err, f),
-            Error::InvalidByteStrLen => f.write_str("invalid byte string length"),
-            Error::InvalidInteger => f.write_str("invalid integer"),
-            Error::InvalidDict => f.write_str("invalid dictionary"),
-            Error::InvalidList => f.write_str("invalid list"),
+            ErrorKind::Deserialize(str) | ErrorKind::Serialize(str) => f.write_str(str),
+            ErrorKind::EofWhileParsingValue => f.write_str("eof while parsing value"),
+            ErrorKind::ExpectedSomeValue => f.write_str("expected some value"),
+            ErrorKind::Utf8Error(err) => Display::fmt(err, f),
+            ErrorKind::InvalidByteStrLen => f.write_str("invalid byte string length"),
+            ErrorKind::InvalidInteger => f.write_str("invalid integer"),
+            ErrorKind::InvalidDict => f.write_str("invalid dictionary"),
+            ErrorKind::InvalidList => f.write_str("invalid list"),
+            ErrorKind::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
+            ErrorKind::KeyWithoutValue => f.write_str("key without value"),
+            ErrorKind::ParseIntError(err) => Display::fmt(err, f),
+            ErrorKind::TrailingData => f.write_str("trailing data error"),
+            ErrorKind::UnsupportedType => f.write_str("unsupported type"),
+            ErrorKind::ValueWithoutKey => f.write_str("value without key"),
             #[cfg(feature = "std")]
-            Error::IoError(err) => Display::fmt(err, f),
-            Error::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
-            Error::KeyWithoutValue => f.write_str("key without value"),
-            Error::ParseIntError(err) => Display::fmt(err, f),
-            Error::TrailingData => f.write_str("trailing data error"),
-            Error::UnsupportedType => f.write_str("unsupported type"),
-            Error::ValueWithoutKey => f.write_str("value without key"),
+            ErrorKind::Io(source) => Display::fmt(source, f),
         }
     }
 }
 
-#[cfg(feature = "std")]
-impl From<Error> for io::Error {
-    fn from(other: Error) -> Self {
-        match other {
-            Error::IoError(e) => e,
-            _ => io::Error::from(io::ErrorKind::Other),
+impl fmt::Debug for ErrorKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            ErrorKind::Deserialize(str) | ErrorKind::Serialize(str) => f.write_str(str),
+            ErrorKind::EofWhileParsingValue => f.write_str("eof while parsing value"),
+            ErrorKind::ExpectedSomeValue => f.write_str("expected some value"),
+            ErrorKind::Utf8Error(err) => fmt::Debug::fmt(err, f),
+            ErrorKind::InvalidByteStrLen => f.write_str("invalid byte string length"),
+            ErrorKind::InvalidInteger => f.write_str("invalid integer"),
+            ErrorKind::InvalidDict => f.write_str("invalid dictionary"),
+            ErrorKind::InvalidList => f.write_str("invalid list"),
+            ErrorKind::KeyMustBeAByteStr => f.write_str("key must be a byte string"),
+            ErrorKind::KeyWithoutValue => f.write_str("key without value"),
+            ErrorKind::ParseIntError(err) => fmt::Debug::fmt(err, f),
+            ErrorKind::TrailingData => f.write_str("trailing data error"),
+            ErrorKind::UnsupportedType => f.write_str("unsupported type"),
+            ErrorKind::ValueWithoutKey => f.write_str("value without key"),
+            #[cfg(feature = "std")]
+            ErrorKind::Io(source) => fmt::Debug::fmt(source, f),
         }
-    }
-}
-
-impl From<Utf8Error> for Error {
-    fn from(other: Utf8Error) -> Self {
-        Error::Utf8Error(other)
-    }
-}
-
-impl From<num::ParseIntError> for Error {
-    fn from(other: num::ParseIntError) -> Self {
-        Error::ParseIntError(other)
-    }
-}
-
-impl de::Error for Error {
-    fn custom<T: Display>(msg: T) -> Self {
-        Error::Deserialize(msg.to_string())
-    }
-
-    fn invalid_type(unexp: de::Unexpected<'_>, exp: &dyn de::Expected) -> Self {
-        Error::Deserialize(format!(
-            "unexpected type error. invalid_type={}, expected_type={}",
-            unexp, exp
-        ))
-    }
-}
-
-#[cfg(all(feature = "alloc", not(feature = "std")))]
-impl de::StdError for Error {}
-
-impl ser::Error for Error {
-    fn custom<T: Display>(msg: T) -> Self {
-        Error::Serialize(msg.to_string())
     }
 }

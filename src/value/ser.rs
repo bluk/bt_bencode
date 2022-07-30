@@ -1,7 +1,7 @@
 //! Serializes into a [Value].
 
 use super::{Number, Value};
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use serde::{ser, Serialize};
 use serde_bytes::ByteBuf;
 
@@ -26,7 +26,7 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_bool(self, _value: bool) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -71,12 +71,12 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_f32(self, _value: f32) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -110,7 +110,7 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_unit(self) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -125,7 +125,7 @@ impl ser::Serializer for Serializer {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -147,7 +147,7 @@ impl ser::Serializer for Serializer {
     where
         T: ?Sized + Serialize,
     {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -159,7 +159,7 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -168,7 +168,7 @@ impl ser::Serializer for Serializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleStruct> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -179,7 +179,7 @@ impl ser::Serializer for Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeTupleVariant> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     #[inline]
@@ -203,7 +203,7 @@ impl ser::Serializer for Serializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<Self::SerializeStructVariant> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn is_human_readable(&self) -> bool {
@@ -249,7 +249,7 @@ impl ser::SerializeMap for SerializeDict {
         T: ?Sized + Serialize,
     {
         if self.current_key.is_some() {
-            return Err(Error::KeyWithoutValue);
+            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
         }
         self.current_key = Some(key.serialize(&mut DictKeySerializer)?);
         Ok(())
@@ -260,7 +260,10 @@ impl ser::SerializeMap for SerializeDict {
     where
         T: ?Sized + Serialize,
     {
-        let key = self.current_key.take().ok_or(Error::ValueWithoutKey)?;
+        let key = self
+            .current_key
+            .take()
+            .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
         let value = super::to_value(value)?;
         self.dict.insert(key, value);
         Ok(())
@@ -308,47 +311,47 @@ impl ser::Serializer for &mut DictKeySerializer {
     type SerializeStructVariant = ser::Impossible<ByteBuf, Error>;
 
     fn serialize_bool(self, _value: bool) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i8(self, _value: i8) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i16(self, _value: i16) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i32(self, _value: i32) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_i64(self, _value: i64) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u8(self, _value: u8) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u16(self, _value: u16) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u32(self, _value: u32) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_u64(self, _value: u64) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_f32(self, _value: f32) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_f64(self, _value: f64) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_char(self, value: char) -> Result<Self::Ok> {
@@ -365,7 +368,7 @@ impl ser::Serializer for &mut DictKeySerializer {
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok> {
@@ -378,7 +381,7 @@ impl ser::Serializer for &mut DictKeySerializer {
         _variant_index: u32,
         _variant: &'static str,
     ) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_newtype_struct<T: ?Sized + Serialize>(
@@ -386,7 +389,7 @@ impl ser::Serializer for &mut DictKeySerializer {
         _name: &'static str,
         _value: &T,
     ) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_newtype_variant<T: ?Sized + Serialize>(
@@ -396,23 +399,23 @@ impl ser::Serializer for &mut DictKeySerializer {
         _variant: &'static str,
         _value: &T,
     ) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_none(self) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<Self::Ok> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple(self, _size: usize) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple_struct(
@@ -420,7 +423,7 @@ impl ser::Serializer for &mut DictKeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_tuple_variant(
@@ -430,11 +433,11 @@ impl ser::Serializer for &mut DictKeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_struct(
@@ -442,7 +445,7 @@ impl ser::Serializer for &mut DictKeySerializer {
         _name: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 
     fn serialize_struct_variant(
@@ -452,7 +455,7 @@ impl ser::Serializer for &mut DictKeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Self::Ok, Error>> {
-        Err(Error::UnsupportedType)
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 }
 
@@ -467,18 +470,21 @@ mod tests {
     #[cfg(feature = "std")]
     use std::{string::String, vec};
 
-    macro_rules! assert_matches {
-        ($expr:expr, $value:pat) => {
-            assert!(match $expr {
-                $value => true,
-                _ => false,
-            })
+    macro_rules! assert_is_unsupported_type {
+        ($e:expr) => {
+            match $e {
+                Ok(_) => unreachable!(),
+                Err(error) => match error.kind() {
+                    ErrorKind::UnsupportedType => {}
+                    _ => panic!("wrong error type"),
+                },
+            }
         };
     }
 
     #[test]
     fn test_serialize_bool() {
-        assert_matches!(to_value(&true), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_value(&true));
     }
 
     #[test]
@@ -563,13 +569,13 @@ mod tests {
     #[test]
     fn test_serialize_f32() {
         let value: f32 = 2.0;
-        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_value(&value));
     }
 
     #[test]
     fn test_serialize_f64() {
         let value: f64 = 2.0;
-        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_value(&value));
     }
 
     #[test]
@@ -607,13 +613,13 @@ mod tests {
 
     #[test]
     fn test_serialize_unit() {
-        assert_matches!(to_value(&()), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_value(&()));
     }
 
     #[test]
     fn test_serialize_none() {
         let value: Option<i64> = None;
-        assert_matches!(to_value(&value), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(to_value(&value));
     }
 
     #[test]
@@ -626,20 +632,14 @@ mod tests {
     fn test_serialize_unit_struct() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_unit_struct("Nothing"),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_unit_struct("Nothing"));
     }
 
     #[test]
     fn test_serialize_unit_variant() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_unit_variant("Nothing", 0, "Case"),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_unit_variant("Nothing", 0, "Case"));
     }
 
     #[test]
@@ -653,10 +653,7 @@ mod tests {
     fn test_serialize_newtype_variant() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_unit_variant("Nothing", 0, "Case"),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_unit_variant("Nothing", 0, "Case"));
     }
 
     #[test]
@@ -682,37 +679,38 @@ mod tests {
     fn test_serialize_tuple() {
         use serde::Serializer;
 
-        assert_matches!(Serializer.serialize_tuple(0), Err(Error::UnsupportedType));
+        assert_is_unsupported_type!(Serializer.serialize_tuple(0));
     }
 
     #[test]
     fn test_serialize_tuple_struct() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_tuple_struct("Tuple Struct", 2),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_tuple_struct("Tuple Struct", 2));
     }
 
     #[test]
     fn test_serialize_tuple_variant() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_tuple_variant("Tuple Variant", 2, "Case", 1),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_tuple_variant(
+            "Tuple Variant",
+            2,
+            "Case",
+            1
+        ));
     }
 
     #[test]
     fn test_serialize_struct_variant() {
         use serde::Serializer;
 
-        assert_matches!(
-            Serializer.serialize_struct_variant("Struct Variant", 2, "Case", 1),
-            Err(Error::UnsupportedType)
-        );
+        assert_is_unsupported_type!(Serializer.serialize_struct_variant(
+            "Struct Variant",
+            2,
+            "Case",
+            1
+        ));
     }
 
     #[test]

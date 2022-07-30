@@ -117,7 +117,7 @@ pub mod value;
 #[doc(inline)]
 pub use de::{from_slice, Deserializer};
 #[doc(inline)]
-pub use error::{Error, Result};
+pub use error::{Error, ErrorKind, Result};
 #[doc(inline)]
 pub use value::{from_value, to_value, Value};
 

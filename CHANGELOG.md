@@ -23,6 +23,12 @@
   ```
 
   should work now when using `from_slice`.
+* **Breaking change**: Refactored the `Error` type.
+
+  The `byte_offset()` method can help hint where the error occurred at (usually only helpful for deserialization).
+
+  Refactored to use `Box` to reduce the size of the return types. Rationale is
+  influenced by Serde JSON issues/discussions where an allocation for an exceptional code path is acceptable.
 
 ## [0.6.1] - 2022-03-31
 

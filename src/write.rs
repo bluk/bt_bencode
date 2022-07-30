@@ -1,8 +1,7 @@
 //! [Write] trait and helpers to write bytes for the serializer.
 
 #[cfg(feature = "std")]
-use crate::error::Error;
-
+use crate::{error::ErrorKind, Error};
 #[cfg(feature = "std")]
 use std::io;
 
@@ -50,7 +49,9 @@ where
 {
     #[inline]
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
-        self.writer.write_all(buf).map_err(Error::IoError)
+        self.writer
+            .write_all(buf)
+            .map_err(|error| Error::with_kind(ErrorKind::Io(error)))
     }
 }
 

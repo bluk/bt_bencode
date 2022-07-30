@@ -1,6 +1,6 @@
 //! [Read] trait and helpers to read bytes for the deserializer.
 
-use crate::error::{Error, Result};
+use crate::error::{Error, ErrorKind, Result};
 use core::ops::Deref;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -72,16 +72,30 @@ pub trait Read<'a> {
 
         let start_idx = buf.len();
 
-        if self.peek().ok_or(Error::EofWhileParsingValue)?? == b'-' {
+        if self
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            == b'-'
+        {
             buf.push(b'-');
-            self.next().ok_or(Error::EofWhileParsingValue)??;
+            self.next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
         }
 
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
-                b'e' => return Ok(Ref::Buffer(core::str::from_utf8(&buf[start_idx..])?)),
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
+                b'e' => {
+                    return Ok(Ref::Buffer(
+                        core::str::from_utf8(&buf[start_idx..]).map_err(|error| {
+                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                        })?,
+                    ))
+                }
                 n @ b'0'..=b'9' => buf.push(n),
-                _ => return Err(Error::InvalidInteger),
+                _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
             }
         }
     }
@@ -107,13 +121,23 @@ pub trait Read<'a> {
 
         let len: usize;
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b':' => {
-                    len = core::str::from_utf8(buf)?.parse()?;
+                    len = core::str::from_utf8(buf)
+                        .map_err(|error| {
+                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                        })?
+                        .parse()
+                        .map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
+                        })?;
                     break;
                 }
                 n @ b'0'..=b'9' => buf.push(n),
-                _ => return Err(Error::InvalidByteStrLen),
+                _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
 
@@ -121,7 +145,9 @@ pub trait Read<'a> {
         buf.reserve(len);
 
         for _ in 0..len {
-            buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+            buf.push(self.next().ok_or_else(|| {
+                Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+            })??);
         }
 
         Ok(Ref::Buffer(&buf[..]))
@@ -140,24 +166,35 @@ pub trait Read<'a> {
     /// - end of file
     fn parse_raw_integer<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = buf.len();
-        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+        buf.push(
+            self.next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??,
+        );
 
-        match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+        match self
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+        {
             b'-' => {
-                buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+                buf.push(self.next().ok_or_else(|| {
+                    Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                })??);
             }
             b'0'..=b'9' => {}
-            _ => return Err(Error::InvalidInteger),
+            _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
         }
 
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'e' => {
                     buf.push(b'e');
                     return Ok(Ref::Buffer(&buf[start_idx..]));
                 }
                 n @ b'0'..=b'9' => buf.push(n),
-                _ => return Err(Error::InvalidInteger),
+                _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
             }
         }
     }
@@ -177,20 +214,32 @@ pub trait Read<'a> {
         let start_idx = buf.len();
         let len;
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b':' => {
-                    len = core::str::from_utf8(&buf[start_idx..])?.parse()?;
+                    len = core::str::from_utf8(&buf[start_idx..])
+                        .map_err(|error| {
+                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                        })?
+                        .parse()
+                        .map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
+                        })?;
                     buf.push(b':');
                     break;
                 }
                 n @ b'0'..=b'9' => buf.push(n),
-                _ => return Err(Error::InvalidByteStrLen),
+                _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
 
         buf.reserve(len);
         for _ in 0..len {
-            buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+            buf.push(self.next().ok_or_else(|| {
+                Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+            })??);
         }
         Ok(Ref::Buffer(&buf[start_idx..]))
     }
@@ -208,12 +257,20 @@ pub trait Read<'a> {
     /// - end of file
     fn parse_raw_list<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = buf.len();
-        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+        buf.push(
+            self.next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??,
+        );
 
         loop {
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'e' => {
-                    buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+                    buf.push(self.next().ok_or_else(|| {
+                        Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                    })??);
                     return Ok(Ref::Buffer(&buf[start_idx..]));
                 }
                 b'0'..=b'9' => {
@@ -228,7 +285,7 @@ pub trait Read<'a> {
                 b'd' => {
                     self.parse_raw_dict(buf)?;
                 }
-                _ => return Err(Error::InvalidList),
+                _ => return Err(Error::new(ErrorKind::InvalidList, self.byte_offset())),
             }
         }
     }
@@ -246,23 +303,34 @@ pub trait Read<'a> {
     /// - end of file
     fn parse_raw_dict<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = buf.len();
-        buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+        buf.push(
+            self.next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??,
+        );
 
         loop {
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'0'..=b'9' => {
                     self.parse_raw_byte_str(buf)?;
                 }
                 b'e' => {
-                    buf.push(self.next().ok_or(Error::EofWhileParsingValue)??);
+                    buf.push(self.next().ok_or_else(|| {
+                        Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                    })??);
                     return Ok(Ref::Buffer(&buf[start_idx..]));
                 }
                 _ => {
-                    return Err(Error::InvalidDict);
+                    return Err(Error::new(ErrorKind::InvalidDict, self.byte_offset()));
                 }
             }
 
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'0'..=b'9' => {
                     self.parse_raw_byte_str(buf)?;
                 }
@@ -276,7 +344,7 @@ pub trait Read<'a> {
                     self.parse_raw_dict(buf)?;
                 }
                 _ => {
-                    return Err(Error::InvalidDict);
+                    return Err(Error::new(ErrorKind::InvalidDict, self.byte_offset()));
                 }
             }
         }
@@ -328,7 +396,7 @@ where
                     self.byte_offset += 1;
                     Some(Ok(b))
                 }
-                Some(Err(err)) => Some(Err(Error::IoError(err))),
+                Some(Err(err)) => Some(Err(Error::new(ErrorKind::Io(err), self.byte_offset()))),
                 None => None,
             },
         }
@@ -343,7 +411,7 @@ where
                     self.peeked_byte = Some(b);
                     Some(Ok(b))
                 }
-                Some(Err(err)) => Some(Err(Error::IoError(err))),
+                Some(Err(err)) => Some(Err(Error::new(ErrorKind::Io(err), self.byte_offset()))),
                 None => None,
             },
         }
@@ -404,19 +472,27 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn parse_integer<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, str>> {
         let start_idx = self.byte_offset;
 
-        match self.next().ok_or(Error::EofWhileParsingValue)?? {
+        match self
+            .next()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+        {
             b'-' | b'0'..=b'9' => loop {
-                match self.next().ok_or(Error::EofWhileParsingValue)?? {
+                match self.next().ok_or_else(|| {
+                    Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                })?? {
                     b'0'..=b'9' => {}
                     b'e' => {
-                        return Ok(Ref::Source(core::str::from_utf8(
-                            &self.slice[start_idx..self.byte_offset - 1],
-                        )?));
+                        return Ok(Ref::Source(
+                            core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
+                                .map_err(|error| {
+                                    Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                                })?,
+                        ));
                     }
-                    _ => return Err(Error::InvalidInteger),
+                    _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
                 }
             },
-            _ => Err(Error::InvalidInteger),
+            _ => Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
         }
     }
 
@@ -426,14 +502,23 @@ impl<'a> Read<'a> for SliceRead<'a> {
 
         let len: usize;
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b':' => {
-                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])?
-                        .parse()?;
+                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
+                        .map_err(|error| {
+                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                        })?
+                        .parse()
+                        .map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
+                        })?;
                     break;
                 }
                 b'0'..=b'9' => {}
-                _ => return Err(Error::InvalidByteStrLen),
+                _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
 
@@ -443,7 +528,10 @@ impl<'a> Read<'a> for SliceRead<'a> {
         let slice_len = self.slice.len();
         if slice_len < self.byte_offset {
             self.byte_offset = slice_len;
-            return Err(Error::EofWhileParsingValue);
+            return Err(Error::new(
+                ErrorKind::EofWhileParsingValue,
+                self.byte_offset(),
+            ));
         }
 
         Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]))
@@ -452,23 +540,32 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn parse_raw_integer<'b>(&'b mut self, _buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = self.byte_offset;
 
-        self.next().ok_or(Error::EofWhileParsingValue)??;
+        self.next()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
 
-        match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+        match self
+            .peek()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+        {
             b'-' => {
-                self.next().ok_or(Error::EofWhileParsingValue)??;
+                self.next().ok_or_else(|| {
+                    Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                })??;
             }
             b'0'..=b'9' => {}
-            _ => return Err(Error::InvalidInteger),
+            _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
         }
 
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'e' => {
                     return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
                 }
                 b'0'..=b'9' => {}
-                _ => return Err(Error::InvalidInteger),
+                _ => return Err(Error::new(ErrorKind::InvalidInteger, self.byte_offset())),
             }
         }
     }
@@ -478,14 +575,23 @@ impl<'a> Read<'a> for SliceRead<'a> {
 
         let len: usize;
         loop {
-            match self.next().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .next()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b':' => {
-                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])?
-                        .parse()?;
+                    len = core::str::from_utf8(&self.slice[start_idx..self.byte_offset - 1])
+                        .map_err(|error| {
+                            Error::new(ErrorKind::Utf8Error(error), self.byte_offset())
+                        })?
+                        .parse()
+                        .map_err(|error| {
+                            Error::new(ErrorKind::ParseIntError(error), self.byte_offset())
+                        })?;
                     break;
                 }
                 b'0'..=b'9' => {}
-                _ => return Err(Error::InvalidByteStrLen),
+                _ => return Err(Error::new(ErrorKind::InvalidByteStrLen, self.byte_offset())),
             }
         }
         self.byte_offset += len;
@@ -493,7 +599,10 @@ impl<'a> Read<'a> for SliceRead<'a> {
         let slice_len = self.slice.len();
         if slice_len < self.byte_offset {
             self.byte_offset = slice_len;
-            return Err(Error::EofWhileParsingValue);
+            return Err(Error::new(
+                ErrorKind::EofWhileParsingValue,
+                self.byte_offset(),
+            ));
         }
 
         Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]))
@@ -502,12 +611,18 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn parse_raw_list<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = self.byte_offset;
 
-        self.next().ok_or(Error::EofWhileParsingValue)??;
+        self.next()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
 
         loop {
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'e' => {
-                    self.next().ok_or(Error::EofWhileParsingValue)??;
+                    self.next().ok_or_else(|| {
+                        Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                    })??;
                     return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
                 }
                 b'0'..=b'9' => {
@@ -522,7 +637,7 @@ impl<'a> Read<'a> for SliceRead<'a> {
                 b'd' => {
                     self.parse_raw_dict(buf)?;
                 }
-                _ => return Err(Error::InvalidList),
+                _ => return Err(Error::new(ErrorKind::InvalidList, self.byte_offset())),
             }
         }
     }
@@ -530,23 +645,32 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn parse_raw_dict<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>> {
         let start_idx = self.byte_offset;
 
-        self.next().ok_or(Error::EofWhileParsingValue)??;
+        self.next()
+            .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??;
 
         loop {
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'e' => {
-                    self.next().ok_or(Error::EofWhileParsingValue)??;
+                    self.next().ok_or_else(|| {
+                        Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset())
+                    })??;
                     return Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]));
                 }
                 b'0'..=b'9' => {
                     self.parse_raw_byte_str(buf)?;
                 }
                 _ => {
-                    return Err(Error::InvalidDict);
+                    return Err(Error::new(ErrorKind::InvalidDict, self.byte_offset()));
                 }
             }
 
-            match self.peek().ok_or(Error::EofWhileParsingValue)?? {
+            match self
+                .peek()
+                .ok_or_else(|| Error::new(ErrorKind::EofWhileParsingValue, self.byte_offset()))??
+            {
                 b'0'..=b'9' => {
                     self.parse_raw_byte_str(buf)?;
                 }
@@ -560,7 +684,7 @@ impl<'a> Read<'a> for SliceRead<'a> {
                     self.parse_raw_dict(buf)?;
                 }
                 _ => {
-                    return Err(Error::InvalidDict);
+                    return Err(Error::new(ErrorKind::InvalidDict, self.byte_offset()));
                 }
             }
         }
