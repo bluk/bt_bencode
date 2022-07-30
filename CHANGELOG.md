@@ -4,6 +4,7 @@
 
 ### Added
 
+* Allow deserialization from a reader reference with trailing data
 * Serialize and deserialize tuples and tuple structs.
 * Allow deserialization from a borrowed `Value`.
 * Set supported Rust version to `1.36.0`. The MSRV is not guranteed due to dependencies being free to bump their version.

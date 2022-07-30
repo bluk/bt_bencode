@@ -27,6 +27,23 @@ where
     Ok(value)
 }
 
+/// Deserializes an instance of `T` from the bytes of an [`io::Read`] type, advancing the position of the reader to the end of the deserialized bytes
+///
+/// # Errors
+///
+/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
+/// into an instance of `T`, and other IO errors.
+#[cfg(feature = "std")]
+pub fn take_from_reader<'a, R, T>(r: &mut R) -> Result<T>
+where
+    R: io::Read,
+    T: de::Deserialize<'a>,
+{
+    let mut de = Deserializer::new(read::IoRead::new(r));
+    let value = T::deserialize(&mut de)?;
+    Ok(value)
+}
+
 /// Deserializes an instance of `T` from a slice of bytes.
 ///
 /// # Errors

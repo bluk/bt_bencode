@@ -131,3 +131,7 @@ pub use ser::{to_vec, Serializer};
 #[doc(inline)]
 #[cfg(feature = "std")]
 pub use de::from_reader;
+
+#[doc(inline)]
+#[cfg(feature = "std")]
+pub use de::take_from_reader;
