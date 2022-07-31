@@ -1,6 +1,6 @@
 # CHANGELOG
 
-## [Unreleased]
+## [0.7.0] - 2022-07-31
 
 ### Added
 
@@ -25,7 +25,7 @@
   should work now when using `from_slice`.
 * **Breaking change**: Refactored the `Error` type.
 
-  The `byte_offset()` method can help hint where the error occurred at (usually only helpful for deserialization).
+  The `Error::byte_offset()` method can help hint where the error occurred at (usually only helpful for deserialization).
 
   Refactored to use `Box` to reduce the size of the return types. Rationale is
   influenced by Serde JSON issues/discussions where an allocation for an exceptional code path is acceptable.
@@ -104,7 +104,8 @@
 * `Serializer`, `Deserializer`, and related functions.
 
 
-[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bluk/bt_bencode/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/bluk/bt_bencode/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bluk/bt_bencode/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/bluk/bt_bencode/compare/v0.5.0...v0.5.1

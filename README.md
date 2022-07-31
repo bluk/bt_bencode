@@ -16,7 +16,7 @@ implementation.
 
 ```toml
 [dependencies]
-bt_bencode = "0.6.1"
+bt_bencode = "0.7.0"
 ```
 
 ## Examples
