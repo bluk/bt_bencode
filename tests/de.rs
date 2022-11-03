@@ -119,7 +119,7 @@ fn test_deserialize_info_hash_borrowed() -> Result<(), Error> {
     let metainfo: Metainfo = bt_bencode::from_slice(TORRENT_BYTES)?;
 
     let mut hasher = sha1::Sha1::new();
-    hasher.update(&metainfo.info);
+    hasher.update(metainfo.info);
     let orig_info_hash = hasher.finalize();
 
     assert_eq!(
