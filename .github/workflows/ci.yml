@@ -30,41 +30,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
+          persist-credentials: false
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
           toolchain: ${{ matrix.rust }}
-          override: true
       - name: Rust Version
         run: rustc --version
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-registry
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-git
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo build
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-target
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: Run cargo build (--all-features)
         run: cargo build --release --all-features
       - name: Run cargo build (--features alloc)
@@ -92,41 +65,14 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
+          persist-credentials: false
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
           toolchain: ${{ matrix.rust }}
-          override: true
       - name: Rust Version
         run: rustc --version
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-registry
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-git
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo build
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-target
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: Run cargo check (--all-features)
         run: cargo check --all-features
       - name: Run cargo test (default)
@@ -147,53 +93,19 @@ jobs:
           - stable
           - nightly
     runs-on: ${{ matrix.os }}
-    container: rust
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-      - name: Install toolchain
-        uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
+          persist-credentials: false
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
           toolchain: ${{ matrix.rust }}
-          override: true
           components: rustfmt
       - name: Rust Version
         run: rustc --version
-      - name: Install rustfmt
-        run: rustup component add rustfmt
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-registry
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-git
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo build
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-target
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+      - run: cargo fmt --all -- --check
   clippy:
     name: Clippy
     strategy:
@@ -204,45 +116,15 @@ jobs:
           - stable
           - nightly
     runs-on: ${{ matrix.os }}
-    container: rust
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
+        with:
+          persist-credentials: false
       - name: Install toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          profile: minimal
           toolchain: ${{ matrix.rust }}
-          override: true
           components: clippy
-      - name: Install clippy
-        run: rustup component add clippy
-      - name: Cache cargo registry
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-registry
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo index
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-cargo-git
-        with:
-          path: ~/.cargo/git
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
-      - name: Cache cargo build
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-target
-        with:
-          path: target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
       - name: Run cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings

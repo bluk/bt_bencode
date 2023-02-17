@@ -12,9 +12,25 @@ on:
 
 jobs:
   audit:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        rust:
+          - stable
+    runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/audit-check@v1
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt
+      - name: Rust Version
+        run: rustc --version
+      - run: cargo install cargo-audit
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - run: cargo generate-lockfile
+      - run: cargo audit --deny warnings
