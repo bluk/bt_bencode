@@ -128,3 +128,30 @@ jobs:
           components: clippy
       - name: Run cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
+  cargo_deny:
+    name: Cargo Deny
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        rust:
+          - stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt
+      - name: Rust Version
+        run: rustc --version
+      - run: cargo install cargo-deny
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+      - run: cargo generate-lockfile
+      - run: cargo deny check
+      - run: cargo deny --all-features check
+      - run: cargo deny --no-default-features --features alloc check
+      - run: cargo deny --no-default-features --features std check
