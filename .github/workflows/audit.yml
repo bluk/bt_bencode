@@ -29,7 +29,7 @@ jobs:
         run: rustc --version
       - run: cargo install cargo-audit
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - run: cargo generate-lockfile
