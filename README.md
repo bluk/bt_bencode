@@ -8,16 +8,7 @@ It uses the [Serde][serde] library to serialize and deserialize Bencode data.
 It is similar to [Serde JSON][serde_json] in terms of functionality and
 implementation.
 
-## Documentation
-
-* [Latest API Docs][docs_rs_bt_bencode]
-
-## Installation
-
-```toml
-[dependencies]
-bt_bencode = "0.7.0"
-```
+* [Latest API Documentation][docs_rs_bt_bencode]
 
 ## Examples
 
@@ -72,6 +63,23 @@ assert_eq!(
 let info: Info = bt_bencode::from_value(value)?;
 assert_eq!(info.t, "query");
 assert_eq!(info.url, "https://example.com/");
+```
+
+## Installation
+
+```sh
+cargo add bt_bencode
+```
+
+By default, the `std` feature is enabled.
+
+### Alloc only
+
+If the host environment has an allocator but does not have access to the Rust
+`std` library:
+
+```sh
+cargo add --no-default-features --features alloc bt_bencode
 ```
 
 ## License
