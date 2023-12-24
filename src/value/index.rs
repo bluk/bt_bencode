@@ -2,7 +2,6 @@
 
 use super::Value;
 use core::ops;
-use serde_bytes::Bytes;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::string::String;
@@ -37,14 +36,14 @@ impl Index for usize {
 impl Index for str {
     fn index<'a>(&self, v: &'a Value) -> Option<&'a Value> {
         match v {
-            Value::Dict(ref d) => d.get(Bytes::new(self.as_bytes())),
+            Value::Dict(ref d) => d.get(self.as_bytes()),
             _ => None,
         }
     }
 
     fn index_mut<'a>(&self, v: &'a mut Value) -> Option<&'a mut Value> {
         match v {
-            Value::Dict(ref mut d) => d.get_mut(Bytes::new(self.as_bytes())),
+            Value::Dict(ref mut d) => d.get_mut(self.as_bytes()),
             _ => None,
         }
     }

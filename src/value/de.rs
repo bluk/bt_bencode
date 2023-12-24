@@ -2,9 +2,9 @@
 
 use super::{Number, Value};
 use crate::error::Error;
+use crate::ByteString;
 use serde::de::{DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
-use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{borrow::Cow, collections::BTreeMap, vec};
@@ -154,7 +154,7 @@ impl<'de> SeqAccess<'de> for ListDeserializer {
 }
 
 struct DictDeserializer {
-    iter: <BTreeMap<ByteBuf, Value> as IntoIterator>::IntoIter,
+    iter: <BTreeMap<ByteString, Value> as IntoIterator>::IntoIter,
     value: Option<Value>,
 }
 
@@ -196,7 +196,7 @@ impl<'de> MapAccess<'de> for DictDeserializer {
 }
 
 struct DictKey<'a> {
-    key: Cow<'a, ByteBuf>,
+    key: Cow<'a, ByteString>,
 }
 
 impl<'de> serde::Deserializer<'de> for DictKey<'de> {
@@ -373,7 +373,7 @@ impl<'a> SeqAccess<'a> for ListRefDeserializer<'a> {
 }
 
 struct DictRefDeserializer<'a> {
-    iter: <&'a BTreeMap<ByteBuf, Value> as IntoIterator>::IntoIter,
+    iter: <&'a BTreeMap<ByteString, Value> as IntoIterator>::IntoIter,
     value: Option<&'a Value>,
 }
 
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_deserialize_string() -> Result<()> {
-        let v = Value::ByteStr(ByteBuf::from(String::from("spam")));
+        let v = Value::ByteStr(ByteString::from(String::from("spam")));
         let s: String = from_value(v)?;
         assert_eq!("spam", s);
         Ok(())
@@ -434,9 +434,9 @@ mod tests {
 
     #[test]
     fn test_deserialize_byte_str() -> Result<()> {
-        let v = Value::ByteStr(ByteBuf::from(String::from("spam")));
-        let b: ByteBuf = from_value(v)?;
-        assert_eq!(ByteBuf::from(String::from("spam")), b);
+        let v = Value::ByteStr(ByteString::from(String::from("spam")));
+        let b: ByteString = from_value(v)?;
+        assert_eq!(ByteString::from(String::from("spam")), b);
         Ok(())
     }
 
@@ -467,8 +467,8 @@ mod tests {
     #[test]
     fn test_deserialize_list() -> Result<()> {
         let v = Value::List(vec![
-            Value::ByteStr(ByteBuf::from(String::from("spam"))),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            Value::ByteStr(ByteString::from(String::from("spam"))),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         ]);
         let v: Vec<String> = from_value(v)?;
         assert_eq!(v, vec!["spam", "eggs"]);
@@ -479,12 +479,12 @@ mod tests {
     fn test_deserialize_dict_1() -> Result<()> {
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("cow")),
-            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+            ByteString::from(String::from("cow")),
+            Value::ByteStr(ByteString::from(String::from("moo"))),
         );
         m.insert(
-            ByteBuf::from(String::from("spam")),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            ByteString::from(String::from("spam")),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         );
         let d = Value::Dict(m);
         let d: BTreeMap<String, String> = from_value(d)?;
@@ -502,12 +502,12 @@ mod tests {
 
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("cow")),
-            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+            ByteString::from(String::from("cow")),
+            Value::ByteStr(ByteString::from(String::from("moo"))),
         );
         m.insert(
-            ByteBuf::from(String::from("spam")),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            ByteString::from(String::from("spam")),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         );
         let d = Value::Dict(m);
         let d = BTreeMap::<&str, &str>::deserialize(&d)?;
@@ -523,10 +523,10 @@ mod tests {
     fn test_deserialize_dict_2() -> Result<()> {
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let d = Value::Dict(m);
@@ -547,10 +547,10 @@ mod tests {
 
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let d = Value::Dict(m);
@@ -568,10 +568,10 @@ mod tests {
 
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let d = Value::Dict(m);
@@ -587,10 +587,10 @@ mod tests {
     fn test_deserialize_dict_3() -> Result<()> {
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let d = Value::Dict(m);
@@ -600,8 +600,8 @@ mod tests {
         expected.insert(
             String::from("spam"),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         assert_eq!(d, expected);
@@ -612,10 +612,10 @@ mod tests {
     fn test_deserialize_dict_4() -> Result<()> {
         let mut m = BTreeMap::new();
         m.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let d = Value::Dict(m);
@@ -625,8 +625,8 @@ mod tests {
         expected.insert(
             String::from("spam"),
             vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ],
         );
         assert_eq!(d, expected);

@@ -636,8 +636,9 @@ impl<'a> ser::Serializer for &'a mut MapKeySerializer {
 
 #[cfg(test)]
 mod tests {
+    use crate::ByteString;
+
     use super::*;
-    use serde_bytes::ByteBuf;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{format, string::String, vec};
@@ -772,7 +773,7 @@ mod tests {
 
     #[test]
     fn test_serialize_bytes() {
-        let value = ByteBuf::from(String::from("123").into_bytes());
+        let value = ByteString::from(String::from("123").into_bytes());
         assert_eq!(to_vec(&&value).unwrap(), String::from("3:123").into_bytes());
     }
 

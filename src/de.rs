@@ -609,8 +609,9 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::ByteString;
+
     use super::*;
-    use serde_bytes::ByteBuf;
     use serde_derive::Deserialize;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -834,11 +835,11 @@ mod tests {
     #[test]
     fn test_deserialize_integer_as_raw_bytes() -> Result<()> {
         #[derive(Debug, PartialEq, Deserialize)]
-        struct S(ByteBuf);
+        struct S(ByteString);
 
         let input = "i-1234e";
         let s: S = from_slice(input.as_bytes())?;
-        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
+        let expected = S(ByteString::from(input.as_bytes().to_vec()));
         assert_eq!(s, expected);
         Ok(())
     }
@@ -846,11 +847,11 @@ mod tests {
     #[test]
     fn test_deserialize_list_as_raw_bytes() -> Result<()> {
         #[derive(Debug, PartialEq, Deserialize)]
-        struct S(ByteBuf);
+        struct S(ByteString);
 
         let input = "l4:spam4:eggse";
         let s: S = from_slice(input.as_bytes())?;
-        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
+        let expected = S(ByteString::from(input.as_bytes().to_vec()));
         assert_eq!(s, expected);
         Ok(())
     }
@@ -859,13 +860,13 @@ mod tests {
     fn test_deserialize_map_value_as_raw_bytes() -> Result<()> {
         #[derive(Debug, PartialEq, Deserialize)]
         struct S {
-            spam: ByteBuf,
+            spam: ByteString,
         }
 
         let input = "d4:spamd1:a1:bee";
         let s: S = from_slice(input.as_bytes())?;
         let expected = S {
-            spam: ByteBuf::from(b"d1:a1:be".to_vec()),
+            spam: ByteString::from(b"d1:a1:be".to_vec()),
         };
         assert_eq!(s, expected);
         Ok(())
@@ -874,11 +875,11 @@ mod tests {
     #[test]
     fn test_deserialize_map_as_raw_bytes() -> Result<()> {
         #[derive(Debug, PartialEq, Deserialize)]
-        struct S(ByteBuf);
+        struct S(ByteString);
 
         let input = "d4:spamd1:a1:bee";
         let s: S = from_slice(input.as_bytes())?;
-        let expected = S(ByteBuf::from(input.as_bytes().to_vec()));
+        let expected = S(ByteString::from(input.as_bytes().to_vec()));
         assert_eq!(s, expected);
         Ok(())
     }

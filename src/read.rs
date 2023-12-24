@@ -50,7 +50,7 @@ pub trait Read<'a> {
 
     /// Returns the next byte but does not consume.
     ///
-    /// Repeated peeks (with no [next()][Read::next] call) should return the same byte.
+    /// Repeated peeks (with no [`next()`][Read::next] call) should return the same byte.
     fn peek(&mut self) -> Option<Result<u8>>;
 
     /// Returns the position in the stream of bytes.

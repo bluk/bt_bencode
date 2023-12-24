@@ -1,4 +1,4 @@
-use bt_bencode::{Error, Value};
+use bt_bencode::{ByteString, Error, Value};
 use serde::Deserialize;
 use serde_derive::Deserialize;
 
@@ -52,7 +52,7 @@ fn test_deserialize_info_hash() -> Result<(), Error> {
 
     #[derive(Deserialize)]
     struct Metainfo {
-        info: serde_bytes::ByteBuf,
+        info: ByteString,
     }
 
     let metainfo: Metainfo = bt_bencode::from_slice(TORRENT_BYTES)?;

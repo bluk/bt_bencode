@@ -1,9 +1,11 @@
 //! Serializes into a [Value].
 
 use super::{Number, Value};
-use crate::error::{Error, ErrorKind, Result};
+use crate::{
+    error::{Error, ErrorKind, Result},
+    ByteString,
+};
 use serde::{ser, Serialize};
-use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{collections::BTreeMap, vec::Vec};
@@ -87,12 +89,12 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
-        Ok(Value::ByteStr(ByteBuf::from(value)))
+        Ok(Value::ByteStr(ByteString::from(value)))
     }
 
     #[inline]
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        Ok(Value::ByteStr(ByteBuf::from(value)))
+        Ok(Value::ByteStr(ByteString::from(value)))
     }
 
     #[inline]
@@ -235,8 +237,8 @@ impl ser::SerializeSeq for SerializeList {
 }
 
 pub(super) struct SerializeDict {
-    dict: BTreeMap<ByteBuf, Value>,
-    current_key: Option<ByteBuf>,
+    dict: BTreeMap<ByteString, Value>,
+    current_key: Option<ByteString>,
 }
 
 impl ser::SerializeMap for SerializeDict {
@@ -299,16 +301,16 @@ impl ser::SerializeStruct for SerializeDict {
 struct DictKeySerializer;
 
 impl ser::Serializer for &mut DictKeySerializer {
-    type Ok = ByteBuf;
+    type Ok = ByteString;
     type Error = Error;
 
-    type SerializeSeq = ser::Impossible<ByteBuf, Error>;
-    type SerializeTuple = ser::Impossible<ByteBuf, Error>;
-    type SerializeTupleStruct = ser::Impossible<ByteBuf, Error>;
-    type SerializeTupleVariant = ser::Impossible<ByteBuf, Error>;
-    type SerializeMap = ser::Impossible<ByteBuf, Error>;
-    type SerializeStruct = ser::Impossible<ByteBuf, Error>;
-    type SerializeStructVariant = ser::Impossible<ByteBuf, Error>;
+    type SerializeSeq = ser::Impossible<ByteString, Error>;
+    type SerializeTuple = ser::Impossible<ByteString, Error>;
+    type SerializeTupleStruct = ser::Impossible<ByteString, Error>;
+    type SerializeTupleVariant = ser::Impossible<ByteString, Error>;
+    type SerializeMap = ser::Impossible<ByteString, Error>;
+    type SerializeStruct = ser::Impossible<ByteString, Error>;
+    type SerializeStructVariant = ser::Impossible<ByteString, Error>;
 
     fn serialize_bool(self, _value: bool) -> Result<Self::Ok> {
         Err(Error::with_kind(ErrorKind::UnsupportedType))
@@ -360,11 +362,11 @@ impl ser::Serializer for &mut DictKeySerializer {
     }
 
     fn serialize_str(self, value: &str) -> Result<Self::Ok> {
-        Ok(ByteBuf::from(value))
+        Ok(ByteString::from(value))
     }
 
     fn serialize_bytes(self, value: &[u8]) -> Result<Self::Ok> {
-        Ok(ByteBuf::from(value))
+        Ok(ByteString::from(value))
     }
 
     fn serialize_unit(self) -> Result<Self::Ok> {
@@ -463,7 +465,6 @@ impl ser::Serializer for &mut DictKeySerializer {
 mod tests {
     use super::*;
     use crate::to_value;
-    use serde_bytes::ByteBuf;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
     use alloc::{string::String, vec};
@@ -583,7 +584,7 @@ mod tests {
         let value: char = 'a';
         assert_eq!(
             to_value(&value).unwrap(),
-            Value::ByteStr(ByteBuf::from("a"))
+            Value::ByteStr(ByteString::from("a"))
         );
     }
 
@@ -592,7 +593,7 @@ mod tests {
         let value: &str = "Hello world!";
         assert_eq!(
             to_value(&value).unwrap(),
-            Value::ByteStr(ByteBuf::from(value))
+            Value::ByteStr(ByteString::from(value))
         );
     }
 
@@ -601,13 +602,13 @@ mod tests {
         let value: &str = "";
         assert_eq!(
             to_value(&value).unwrap(),
-            Value::ByteStr(ByteBuf::from(value))
+            Value::ByteStr(ByteString::from(value))
         );
     }
 
     #[test]
     fn test_serialize_bytes() {
-        let value = ByteBuf::from(String::from("123").into_bytes());
+        let value = ByteString::from(String::from("123").into_bytes());
         assert_eq!(to_value(&&value).unwrap(), Value::ByteStr(value));
     }
 
@@ -729,12 +730,12 @@ mod tests {
         };
         let mut expected = BTreeMap::new();
         expected.insert(
-            ByteBuf::from(String::from("int")),
+            ByteString::from(String::from("int")),
             Value::Int(Number::Unsigned(3)),
         );
         expected.insert(
-            ByteBuf::from(String::from("s")),
-            Value::ByteStr(ByteBuf::from(String::from("Hello, World!"))),
+            ByteString::from(String::from("s")),
+            Value::ByteStr(ByteString::from(String::from("Hello, World!"))),
         );
 
         assert_eq!(to_value(&test).unwrap(), Value::Dict(expected));

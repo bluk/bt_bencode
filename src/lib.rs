@@ -105,6 +105,7 @@ extern crate alloc;
 #[macro_use]
 extern crate serde;
 
+mod bstring;
 mod de;
 mod error;
 
@@ -114,6 +115,8 @@ pub mod write;
 mod ser;
 pub mod value;
 
+#[doc(inline)]
+pub use bstring::ByteString;
 #[doc(inline)]
 pub use de::{from_slice, Deserializer};
 #[doc(inline)]

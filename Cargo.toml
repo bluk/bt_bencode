@@ -21,7 +21,6 @@ rust-version = "1.36.0"
 
 [dependencies]
 serde = {version = "1", default-features = false }
-serde_bytes = { version = "0.11", default-features = false }
 itoa = {version = "1", default-features = false }
 
 [dev-dependencies]
@@ -31,9 +30,9 @@ sha1 = "0.10.1"
 [features]
 default = ["std"]
 
-std = ["serde/std", "serde_bytes/std"]
+std = ["serde/std"]
 
-alloc = ["serde/alloc", "serde_bytes/alloc"]
+alloc = ["serde/alloc"]
 
 [package.metadata.docs.rs]
 all-features = true

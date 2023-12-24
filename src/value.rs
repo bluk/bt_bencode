@@ -1,12 +1,11 @@
 //! Represents valid Bencode data.
 
-use crate::error::Error;
+use crate::{error::Error, ByteString};
 use core::fmt::Display;
 use serde::{
     de::{Deserialize, DeserializeOwned, MapAccess, SeqAccess, Visitor},
     ser::Serialize,
 };
-use serde_bytes::ByteBuf;
 
 #[cfg(all(feature = "alloc", not(feature = "std")))]
 use alloc::{collections::BTreeMap, fmt, str, str::FromStr, string::String, vec::Vec};
@@ -102,19 +101,19 @@ pub enum Value {
     ///
     /// Encoded strings can contain non-UTF-8 bytes, so a byte string is used to represent
     /// "strings".
-    ByteStr(ByteBuf),
+    ByteStr(ByteString),
     /// An integer which can be signed or unsigned.
     Int(Number),
     /// A list of values.
     List(Vec<Value>),
     /// A dictionary of values.
-    Dict(BTreeMap<ByteBuf, Value>),
+    Dict(BTreeMap<ByteString, Value>),
 }
 
 impl Value {
     /// If the value is a byte string, returns a reference to the underlying value.
     #[must_use]
-    pub fn as_byte_str(&self) -> Option<&ByteBuf> {
+    pub fn as_byte_str(&self) -> Option<&ByteString> {
         match self {
             Value::ByteStr(b) => Some(b),
             _ => None,
@@ -123,7 +122,7 @@ impl Value {
 
     /// If the value is a byte string, returns a mutable reference to the underlying value.
     #[must_use]
-    pub fn as_byte_str_mut(&mut self) -> Option<&mut ByteBuf> {
+    pub fn as_byte_str_mut(&mut self) -> Option<&mut ByteString> {
         match self {
             Value::ByteStr(ref mut b) => Some(b),
             _ => None,
@@ -195,7 +194,7 @@ impl Value {
 
     /// If the value is a dictionary, returns a reference to the underlying value.
     #[must_use]
-    pub fn as_dict(&self) -> Option<&BTreeMap<ByteBuf, Value>> {
+    pub fn as_dict(&self) -> Option<&BTreeMap<ByteString, Value>> {
         match self {
             Value::Dict(d) => Some(d),
             _ => None,
@@ -204,7 +203,7 @@ impl Value {
 
     /// If the value is a dictionary, returns a mutable reference to the underlying value.
     #[must_use]
-    pub fn as_dict_mut(&mut self) -> Option<&mut BTreeMap<ByteBuf, Value>> {
+    pub fn as_dict_mut(&mut self) -> Option<&mut BTreeMap<ByteString, Value>> {
         match self {
             Value::Dict(ref mut d) => Some(d),
             _ => None,
@@ -256,7 +255,7 @@ impl Value {
 
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        struct DebugByteStr<'a>(&'a ByteBuf);
+        struct DebugByteStr<'a>(&'a ByteString);
 
         impl<'a> fmt::Debug for DebugByteStr<'a> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -272,7 +271,7 @@ impl fmt::Debug for Value {
             Value::Int(arg0) => f.debug_tuple("Int").field(arg0).finish(),
             Value::List(arg0) => f.debug_tuple("List").field(arg0).finish(),
             Value::Dict(arg0) => {
-                struct DebugDict<'a>(&'a BTreeMap<ByteBuf, Value>);
+                struct DebugDict<'a>(&'a BTreeMap<ByteString, Value>);
 
                 impl<'a> fmt::Debug for DebugDict<'a> {
                     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -354,19 +353,19 @@ impl FromStr for Value {
     type Err = Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Value::ByteStr(ByteBuf::from(String::from(s))))
+        Ok(Value::ByteStr(ByteString::from(String::from(s))))
     }
 }
 
 impl<'a> From<&'a str> for Value {
     fn from(other: &'a str) -> Value {
-        Value::ByteStr(ByteBuf::from(other))
+        Value::ByteStr(ByteString::from(other))
     }
 }
 
 impl From<String> for Value {
     fn from(other: String) -> Value {
-        Value::ByteStr(ByteBuf::from(other))
+        Value::ByteStr(ByteString::from(other))
     }
 }
 
@@ -376,7 +375,7 @@ impl<V: Into<Value>> From<Vec<V>> for Value {
     }
 }
 
-impl<K: Into<ByteBuf>, V: Into<Value>> From<BTreeMap<K, V>> for Value {
+impl<K: Into<ByteString>, V: Into<Value>> From<BTreeMap<K, V>> for Value {
     fn from(other: BTreeMap<K, V>) -> Value {
         Value::Dict(
             other
@@ -415,22 +414,22 @@ impl<'de> Deserialize<'de> for Value {
 
             #[inline]
             fn visit_str<E>(self, value: &str) -> Result<Self::Value, E> {
-                Ok(Value::ByteStr(ByteBuf::from(String::from(value))))
+                Ok(Value::ByteStr(ByteString::from(String::from(value))))
             }
 
             #[inline]
             fn visit_string<E>(self, value: String) -> Result<Self::Value, E> {
-                Ok(Value::ByteStr(ByteBuf::from(value)))
+                Ok(Value::ByteStr(ByteString::from(value)))
             }
 
             #[inline]
             fn visit_bytes<E>(self, value: &[u8]) -> Result<Self::Value, E> {
-                Ok(Value::ByteStr(ByteBuf::from(value)))
+                Ok(Value::ByteStr(ByteString::from(value)))
             }
 
             #[inline]
             fn visit_byte_buf<E>(self, value: Vec<u8>) -> Result<Self::Value, E> {
-                Ok(Value::ByteStr(ByteBuf::from(value)))
+                Ok(Value::ByteStr(ByteString::from(value)))
             }
 
             #[inline]
@@ -528,7 +527,7 @@ where
 /// # Errors
 ///
 /// Serialization can fail if `T`'s implementation of
-/// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
+/// [`Serialize`] decides to fail, if `T` contains
 /// unsupported types for serialization, or if `T` contains a map with
 /// non-string keys.
 #[allow(clippy::module_name_repetitions)]
@@ -554,7 +553,7 @@ mod tests {
     fn test_deserialize_string() -> Result<()> {
         let input = "4:spam";
         let v: Value = crate::de::from_slice(input.as_bytes())?;
-        assert_eq!(v, Value::ByteStr(ByteBuf::from(String::from("spam"))));
+        assert_eq!(v, Value::ByteStr(ByteString::from(String::from("spam"))));
         Ok(())
     }
 
@@ -589,8 +588,8 @@ mod tests {
         assert_eq!(
             v,
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("spam"))),
-                Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+                Value::ByteStr(ByteString::from(String::from("spam"))),
+                Value::ByteStr(ByteString::from(String::from("eggs"))),
             ])
         );
         Ok(())
@@ -603,12 +602,12 @@ mod tests {
 
         let mut expected = BTreeMap::new();
         expected.insert(
-            ByteBuf::from(String::from("cow")),
-            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+            ByteString::from(String::from("cow")),
+            Value::ByteStr(ByteString::from(String::from("moo"))),
         );
         expected.insert(
-            ByteBuf::from(String::from("spam")),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            ByteString::from(String::from("spam")),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         );
         assert_eq!(v, Value::Dict(expected));
         Ok(())
@@ -620,10 +619,10 @@ mod tests {
         let v: Value = crate::de::from_slice(input.as_bytes())?;
         let mut expected = BTreeMap::new();
         expected.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         assert_eq!(v, Value::Dict(expected));
@@ -634,7 +633,8 @@ mod tests {
     #[cfg(feature = "std")]
     fn test_serialize_string() -> Result<()> {
         let expected = "4:spam";
-        let v: Vec<u8> = crate::ser::to_vec(&Value::ByteStr(ByteBuf::from(String::from("spam"))))?;
+        let v: Vec<u8> =
+            crate::ser::to_vec(&Value::ByteStr(ByteString::from(String::from("spam"))))?;
         assert_eq!(v, expected.to_string().into_bytes());
         Ok(())
     }
@@ -671,8 +671,8 @@ mod tests {
     fn test_serialize_list() -> Result<()> {
         let expected = "l4:spam4:eggse";
         let v: Vec<u8> = crate::ser::to_vec(&Value::List(vec![
-            Value::ByteStr(ByteBuf::from(String::from("spam"))),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            Value::ByteStr(ByteString::from(String::from("spam"))),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         ]))?;
         assert_eq!(v, expected.to_string().into_bytes());
         Ok(())
@@ -684,12 +684,12 @@ mod tests {
         let expected = "d3:cow3:moo4:spam4:eggse";
         let mut dict = BTreeMap::new();
         dict.insert(
-            ByteBuf::from(String::from("cow")),
-            Value::ByteStr(ByteBuf::from(String::from("moo"))),
+            ByteString::from(String::from("cow")),
+            Value::ByteStr(ByteString::from(String::from("moo"))),
         );
         dict.insert(
-            ByteBuf::from(String::from("spam")),
-            Value::ByteStr(ByteBuf::from(String::from("eggs"))),
+            ByteString::from(String::from("spam")),
+            Value::ByteStr(ByteString::from(String::from("eggs"))),
         );
         let v: Vec<u8> = crate::ser::to_vec(&Value::Dict(dict))?;
         assert_eq!(v, expected.to_string().into_bytes());
@@ -702,10 +702,10 @@ mod tests {
         let expected = "d4:spaml1:a1:bee";
         let mut dict = BTreeMap::new();
         dict.insert(
-            ByteBuf::from(String::from("spam")),
+            ByteString::from(String::from("spam")),
             Value::List(vec![
-                Value::ByteStr(ByteBuf::from(String::from("a"))),
-                Value::ByteStr(ByteBuf::from(String::from("b"))),
+                Value::ByteStr(ByteString::from(String::from("a"))),
+                Value::ByteStr(ByteString::from(String::from("b"))),
             ]),
         );
         let v: Vec<u8> = crate::ser::to_vec(&Value::Dict(dict))?;
