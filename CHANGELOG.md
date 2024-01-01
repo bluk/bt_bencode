@@ -2,13 +2,18 @@
 
 ### [Unreleased]
 
-- Add `ByteString` type as a specialized type for serialization and
-  deserialization of bencoded strings.
+## [0.8.0]
+
+### Updated
+
 - **Breaking change**: Modify `Value` variants to use `ByteString` instead of
   `serde_bytes::ByteBuf` for byte string values. Removed the `serde_bytes`
-  dependency. While it is still possible to use `serde_bytes` in an
-  application's code, the crate has not reached `1.0`, so the `ByteString` was
-  added and used as a public API instead.
+  dependency.
+
+### Added
+
+- Add `ByteString` type as a specialized type for serialization and
+  deserialization of bencoded strings.
 
 ## [0.7.0] - 2022-07-31
 
@@ -113,7 +118,8 @@
 
 * `Serializer`, `Deserializer`, and related functions.
 
-[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/bluk/bt_bencode/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bluk/bt_bencode/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/bluk/bt_bencode/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/bluk/bt_bencode/compare/v0.5.1...v0.6.0
