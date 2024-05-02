@@ -25,8 +25,8 @@ pub enum Number {
 impl Display for Number {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Number::Signed(arg0) => fmt::Display::fmt(arg0, f),
-            Number::Unsigned(arg0) => fmt::Display::fmt(arg0, f),
+            Number::Signed(arg0) => Display::fmt(arg0, f),
+            Number::Unsigned(arg0) => Display::fmt(arg0, f),
         }
     }
 }
@@ -371,7 +371,7 @@ impl From<String> for Value {
 
 impl<V: Into<Value>> From<Vec<V>> for Value {
     fn from(other: Vec<V>) -> Value {
-        Value::List(other.into_iter().map(core::convert::Into::into).collect())
+        Value::List(other.into_iter().map(Into::into).collect())
     }
 }
 
