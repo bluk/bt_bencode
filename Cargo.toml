@@ -20,11 +20,11 @@ categories = ["encoding", "no-std"]
 rust-version = "1.36.0"
 
 [dependencies]
-serde = {version = "1", default-features = false }
-itoa = {version = "1", default-features = false }
+serde = {version = "1.0.100", default-features = false }
+itoa = {version = "1.0.0", default-features = false }
 
 [dev-dependencies]
-serde_derive = "1"
+serde_derive = "1.0.100"
 sha1 = "0.10.1"
 
 [features]
