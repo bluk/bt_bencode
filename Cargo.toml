@@ -21,7 +21,7 @@ name = "bt_bencode"
 readme = "README.md"
 repository = "https://github.com/bluk/bt_bencode"
 rust-version = "1.36.0"
-version = "0.8.0"
+version = "0.8.1"
 
 [dependencies]
 itoa = {version = "1.0.0", default-features = false }

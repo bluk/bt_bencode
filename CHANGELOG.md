@@ -2,6 +2,13 @@
 
 ### [Unreleased]
 
+## [0.8.1] - 2024-05-15
+
+### Updated
+
+- Update serde dependency to be more precise to ensure minimal versions are
+  correct.
+
 ## [0.8.0] - 2023-12-31
 
 ### Updated
@@ -118,7 +125,8 @@
 
 * `Serializer`, `Deserializer`, and related functions.
 
-[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/bluk/bt_bencode/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/bluk/bt_bencode/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/bluk/bt_bencode/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bluk/bt_bencode/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/bluk/bt_bencode/compare/v0.6.0...v0.6.1
