@@ -1,13 +1,9 @@
 [package]
-name = "bt_bencode"
-version = "0.8.0"
-license = "MIT OR Apache-2.0"
 authors = ["Bryant Luk <code@bryantluk.com>"]
-edition = "2018"
+categories = ["encoding", "no-std"]
 description = "A Bencode encoding/decoding implementation."
-repository = "https://github.com/bluk/bt_bencode"
 documentation = "https://docs.rs/bt_bencode/"
-readme = "README.md"
+edition = "2018"
 include = [
   "/src",
   "/tests",
@@ -20,12 +16,16 @@ include = [
   "/README.md",
 ]
 keywords = ["bencode", "bittorrent", "torrent", "serialization", "serde"]
-categories = ["encoding", "no-std"]
+license = "MIT OR Apache-2.0"
+name = "bt_bencode"
+readme = "README.md"
+repository = "https://github.com/bluk/bt_bencode"
 rust-version = "1.36.0"
+version = "0.8.0"
 
 [dependencies]
-serde = {version = "1.0.100", default-features = false }
 itoa = {version = "1.0.0", default-features = false }
+serde = {version = "1.0.100", default-features = false }
 
 [dev-dependencies]
 serde_derive = "1.0.100"
