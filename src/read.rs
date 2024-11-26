@@ -29,7 +29,7 @@ where
     Buffer(&'b T),
 }
 
-impl<'a, 'b, T> Deref for Ref<'a, 'b, T>
+impl<T> Deref for Ref<'_, '_, T>
 where
     T: 'static + ?Sized,
 {

@@ -59,7 +59,7 @@ impl Index for String {
     }
 }
 
-impl<'s, T> Index for &'s T
+impl<T> Index for &T
 where
     T: Index + ?Sized,
 {

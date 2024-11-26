@@ -257,7 +257,7 @@ impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         struct DebugByteStr<'a>(&'a ByteString);
 
-        impl<'a> fmt::Debug for DebugByteStr<'a> {
+        impl fmt::Debug for DebugByteStr<'_> {
             fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                 match core::str::from_utf8(self.0) {
                     Ok(key) => f.debug_tuple("ByteStr").field(&key).finish(),
@@ -273,7 +273,7 @@ impl fmt::Debug for Value {
             Value::Dict(arg0) => {
                 struct DebugDict<'a>(&'a BTreeMap<ByteString, Value>);
 
-                impl<'a> fmt::Debug for DebugDict<'a> {
+                impl fmt::Debug for DebugDict<'_> {
                     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
                         let mut d = &mut f.debug_map();
                         for (key, value) in self.0 {

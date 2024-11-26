@@ -292,7 +292,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeSeq for &'a mut Serializer<W>
+impl<W> ser::SerializeSeq for &mut Serializer<W>
 where
     W: Write,
 {
@@ -314,7 +314,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTuple for &'a mut Serializer<W>
+impl<W> ser::SerializeTuple for &mut Serializer<W>
 where
     W: Write,
 {
@@ -336,7 +336,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeTupleStruct for &'a mut Serializer<W>
+impl<W> ser::SerializeTupleStruct for &mut Serializer<W>
 where
     W: Write,
 {
@@ -395,7 +395,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeMap for SerializeMap<'a, W>
+impl<W> ser::SerializeMap for SerializeMap<'_, W>
 where
     W: Write,
 {
@@ -438,7 +438,7 @@ where
     }
 }
 
-impl<'a, W> ser::SerializeStruct for SerializeMap<'a, W>
+impl<W> ser::SerializeStruct for SerializeMap<'_, W>
 where
     W: Write,
 {
@@ -469,7 +469,7 @@ where
 
 struct MapKeySerializer;
 
-impl<'a> ser::Serializer for &'a mut MapKeySerializer {
+impl ser::Serializer for &mut MapKeySerializer {
     type Ok = Vec<u8>;
     type Error = Error;
 

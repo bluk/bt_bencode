@@ -284,7 +284,7 @@ macro_rules! forward_deserialize_unsigned_integer {
     };
 }
 
-impl<'de, 'a, R: Read<'de>> de::Deserializer<'de> for &'a mut Deserializer<R> {
+impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
     type Error = Error;
 
     fn deserialize_any<V>(self, visitor: V) -> Result<V::Value>
@@ -571,7 +571,7 @@ struct MapKey<'a, R> {
     de: &'a mut Deserializer<R>,
 }
 
-impl<'de, 'a, R> de::Deserializer<'de> for MapKey<'a, R>
+impl<'de, R> de::Deserializer<'de> for MapKey<'_, R>
 where
     R: Read<'de>,
 {
