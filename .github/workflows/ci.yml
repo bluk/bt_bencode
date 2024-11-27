@@ -23,9 +23,6 @@ jobs:
         exclude:
           - os: macos-latest
             rust: 1.36.0
-        include:
-          - os: macos-11
-            rust: 1.36.0
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout sources
@@ -57,9 +54,6 @@ jobs:
           - 1.56.0
         exclude:
           - os: macos-latest
-            rust: 1.56.0
-        include:
-          - os: macos-11
             rust: 1.56.0
     runs-on: ${{ matrix.os }}
     steps:
