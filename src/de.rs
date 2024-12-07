@@ -18,8 +18,9 @@ use std::{io, vec::Vec};
 ///
 /// # Errors
 ///
-/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
-/// into an instance of `T`, if there is trailing data, and other IO errors.
+/// Deserialization can fail if the data is not valid, if the data cannot be
+/// deserialized into an instance of `T`, if there is trailing data, and other
+/// IO errors.
 #[cfg(feature = "std")]
 pub fn from_reader<R, T>(r: R) -> Result<T>
 where
@@ -41,8 +42,9 @@ where
 ///
 /// # Errors
 ///
-/// Deserialization can fail if the data is not valid, if the data cannot cannot be deserialized
-/// into an instance of `T`, if there is trailing data, and other IO errors.
+/// Deserialization can fail if the data is not valid, if the data cannot be
+/// deserialized into an instance of `T`, if there is trailing data, and other
+/// IO errors.
 pub fn from_slice<'a, T>(s: &'a [u8]) -> Result<T>
 where
     T: de::Deserialize<'a>,
@@ -113,7 +115,8 @@ where
     ///
     /// # Errors
     ///
-    /// An error is returned if there are unconsumed bytes in the readable source.
+    /// An error is returned if there are unconsumed bytes in the readable
+    /// source.
     pub fn end(&mut self) -> Result<()> {
         match self.read.peek() {
             Some(r) => r.and(Err(Error::new(
