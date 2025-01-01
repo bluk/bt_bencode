@@ -263,30 +263,6 @@ impl<'a> Deserializer<read::SliceRead<'a>> {
     }
 }
 
-macro_rules! forward_deserialize_signed_integer {
-    ($method:ident) => {
-        #[inline]
-        fn $method<V>(self, visitor: V) -> Result<V::Value>
-        where
-            V: de::Visitor<'de>,
-        {
-            self.deserialize_i64(visitor)
-        }
-    };
-}
-
-macro_rules! forward_deserialize_unsigned_integer {
-    ($method:ident) => {
-        #[inline]
-        fn $method<V>(self, visitor: V) -> Result<V::Value>
-        where
-            V: de::Visitor<'de>,
-        {
-            self.deserialize_u64(visitor)
-        }
-    };
-}
-
 impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
     type Error = Error;
 
@@ -340,50 +316,11 @@ impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
     }
 
     forward_to_deserialize_any! {
-        bool f32 f64 unit unit_struct
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 unit unit_struct
 
         char str string
 
         struct enum identifier ignored_any
-    }
-
-    forward_deserialize_signed_integer!(deserialize_i8);
-    forward_deserialize_signed_integer!(deserialize_i16);
-    forward_deserialize_signed_integer!(deserialize_i32);
-
-    fn deserialize_i64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.parse_peek()? {
-            b'i' => {
-                self.parse_next()?;
-
-                let (is_positive, num) = self.parse_integer()?;
-                if is_positive {
-                    visitor.visit_u64(num)
-                } else {
-                    use core::convert::TryFrom;
-
-                    visitor.visit_i64(-i64::try_from(num).map_err(|_| {
-                        Error::new(ErrorKind::InvalidInteger, self.read.byte_offset())
-                    })?)
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
-    }
-
-    forward_deserialize_unsigned_integer!(deserialize_u8);
-    forward_deserialize_unsigned_integer!(deserialize_u16);
-    forward_deserialize_unsigned_integer!(deserialize_u32);
-
-    fn deserialize_u64<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        // The implementation should be the same as i64 for this data model
-        self.deserialize_i64(visitor)
     }
 
     fn deserialize_bytes<V>(self, visitor: V) -> Result<V::Value>
