@@ -489,7 +489,7 @@ where
     }
 
     forward_to_deserialize_any! {
-        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 unit unit_struct seq tuple tuple_struct map
+        bool i8 i16 i32 i64 i128 u8 u16 u32 u64 u128 f32 f64 unit unit_struct seq tuple tuple_struct map
         char str string bytes byte_buf enum struct identifier ignored_any
     }
 }

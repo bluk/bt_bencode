@@ -63,12 +63,12 @@ impl<'de> serde::Deserializer<'de> for Value {
     forward_to_deserialize_any! {
         bool f32 f64 unit unit_struct
 
-        i8 i16 i32 i64
-        u8 u16 u32 u64
+        i8 i16 i32 i64 i128
+        u8 u16 u32 u64 u128
 
         char str string bytes byte_buf
 
-        seq map
+        seq tuple tuple_struct map
 
         struct enum identifier ignored_any
     }
@@ -91,27 +91,6 @@ impl<'de> serde::Deserializer<'de> for Value {
         V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
-    }
-
-    #[inline]
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    #[inline]
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
     }
 
     #[inline]
@@ -290,12 +269,12 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
     forward_to_deserialize_any! {
         bool f32 f64 unit unit_struct
 
-        i8 i16 i32 i64
-        u8 u16 u32 u64
+        i8 i16 i32 i64 i128
+        u8 u16 u32 u64 u128
 
         char str string bytes byte_buf
 
-        seq map
+        seq tuple tuple_struct map
 
         struct enum identifier ignored_any
     }
@@ -318,27 +297,6 @@ impl<'de> serde::Deserializer<'de> for &'de Value {
         V: Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
-    }
-
-    #[inline]
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    #[inline]
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value, Self::Error>
-    where
-        V: Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
     }
 
     #[inline]
