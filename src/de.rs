@@ -320,6 +320,8 @@ impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
 
         char str string
 
+        seq tuple tuple_struct map
+
         struct enum identifier ignored_any
     }
 
@@ -396,61 +398,6 @@ impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
         V: de::Visitor<'de>,
     {
         visitor.visit_newtype_struct(self)
-    }
-
-    fn deserialize_seq<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.parse_peek()? {
-            b'l' => {
-                self.parse_next()?;
-                let ret = visitor.visit_seq(SeqAccess { de: self });
-                match (ret, self.on_end_seq()) {
-                    (Ok(ret), Ok(())) => Ok(ret),
-                    (Err(err), _) | (_, Err(err)) => Err(err),
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
-    }
-
-    #[inline]
-    fn deserialize_tuple<V>(self, _len: usize, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    #[inline]
-    fn deserialize_tuple_struct<V>(
-        self,
-        _name: &'static str,
-        _len: usize,
-        visitor: V,
-    ) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        self.deserialize_seq(visitor)
-    }
-
-    fn deserialize_map<V>(self, visitor: V) -> Result<V::Value>
-    where
-        V: de::Visitor<'de>,
-    {
-        match self.parse_peek()? {
-            b'd' => {
-                self.parse_next()?;
-                let ret = visitor.visit_map(MapAccess { de: self });
-                match (ret, self.on_end_map()) {
-                    (Ok(ret), Ok(())) => Ok(ret),
-                    (Err(err), _) | (_, Err(err)) => Err(err),
-                }
-            }
-            _ => Err(self.unexpected_type_err(&visitor)?),
-        }
     }
 
     #[inline]
