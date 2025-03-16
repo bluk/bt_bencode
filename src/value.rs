@@ -174,22 +174,40 @@ impl Value {
         }
     }
 
-    /// If the value is an array, returns a reference to the underlying value.
+    /// If the value is a list, returns a reference to the underlying value.
     #[must_use]
-    pub fn as_array(&self) -> Option<&Vec<Value>> {
+    pub fn as_list(&self) -> Option<&Vec<Value>> {
         match self {
             Value::List(ref l) => Some(l),
             _ => None,
         }
     }
 
-    /// If the value is an array, returns a mutable reference to the underlying value.
+    /// If the value is a list, returns a mutable reference to the underlying value.
     #[must_use]
-    pub fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
+    pub fn as_list_mut(&mut self) -> Option<&mut Vec<Value>> {
         match self {
             Value::List(ref mut l) => Some(l),
             _ => None,
         }
+    }
+
+    /// If the value is a list, returns a reference to the underlying value.
+    ///
+    /// Alternative method name for [Value::as_list()].
+    #[inline]
+    #[must_use]
+    pub fn as_array(&self) -> Option<&Vec<Value>> {
+        self.as_list()
+    }
+
+    /// If the value is a list, returns a mutable reference to the underlying value.
+    ///
+    /// Alternative method name for [Value::as_list_mut()].
+    #[inline]
+    #[must_use]
+    pub fn as_array_mut(&mut self) -> Option<&mut Vec<Value>> {
+        self.as_list_mut()
     }
 
     /// If the value is a dictionary, returns a reference to the underlying value.
@@ -240,10 +258,18 @@ impl Value {
         self.as_i64().is_some()
     }
 
-    /// Returns true if the value is an array.
+    /// Returns true if the value is a list.
+    #[must_use]
+    pub fn is_list(&self) -> bool {
+        self.as_list().is_some()
+    }
+
+    /// Returns true if the value is a list.
+    ///
+    /// Alternative method name for [Value::is_list()].
     #[must_use]
     pub fn is_array(&self) -> bool {
-        self.as_array().is_some()
+        self.is_list()
     }
 
     /// Returns true if the value is a dictionary.
