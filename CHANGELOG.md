@@ -2,6 +2,22 @@
 
 ### [Unreleased]
 
+## [0.8.2](https://github.com/bluk/bt_bencode/compare/v0.8.1...v0.8.2) - 2025-03-16
+
+### Added
+
+- Add `Value::as_list()`, `as_list_mut()`, and `is_list()`
+- Add `deserialize_i128` and `deserialize_u128` support
+
+### Updated
+
+- Remove duplicated code and forward implementations to `deserialize_any()` to
+  reduce code size.
+
+### Other
+
+- Add performance note when using IoRead
+
 ## [0.8.1] - 2024-05-15
 
 ### Updated
