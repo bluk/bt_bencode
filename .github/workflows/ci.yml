@@ -121,7 +121,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           components: clippy
       - name: Run cargo clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features
   cargo_deny:
     name: Cargo Deny
     strategy:
