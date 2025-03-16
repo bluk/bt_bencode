@@ -149,3 +149,25 @@ jobs:
       - run: cargo deny --all-features check
       - run: cargo deny --no-default-features --features alloc check
       - run: cargo deny --no-default-features --features std check
+  semver:
+    name: Semantic Versioning Check
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+        rust:
+          - stable
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Rust Version
+        run: rustc --version
+      - name: Check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2
