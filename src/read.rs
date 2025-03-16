@@ -146,6 +146,12 @@ where
     R: io::Read,
 {
     /// Instantiates a new reader.
+    ///
+    /// # Performance
+    ///
+    /// It is strongly recommended to use a [BufReader][std::io::BufReader] or a
+    /// similar type (which buffers read data in-memory) as the `reader`
+    /// argument.  See `BufReader`'s documentation for more information.
     pub fn new(reader: R) -> Self {
         IoRead {
             iter: reader.bytes(),
