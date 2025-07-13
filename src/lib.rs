@@ -108,6 +108,7 @@ extern crate serde;
 mod bstring;
 mod de;
 mod error;
+mod bipaddr;
 
 pub mod read;
 pub mod write;
@@ -121,6 +122,8 @@ pub use bstring::ByteString;
 pub use de::{from_slice, Deserializer};
 #[doc(inline)]
 pub use error::{Error, ErrorKind, Result};
+#[doc(inline)]
+pub use bipaddr::ByteIpAddr;
 #[doc(inline)]
 pub use value::{from_value, to_value, Value};
 
