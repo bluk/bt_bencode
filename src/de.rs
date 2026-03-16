@@ -770,4 +770,126 @@ mod tests {
         assert_eq!(s, expected);
         Ok(())
     }
+
+    #[test]
+    fn test_deserialize_some_struct() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: i32,
+        }
+
+        let input = "d5:inneri32ee";
+        let s: Option<S> = from_slice(input.as_bytes())?;
+        let expected = Some(S { inner: 32 });
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_none_struct() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: i32,
+        }
+
+        let input = "de";
+        // let s: Option<S> = from_slice(input.as_bytes());
+        let s: Result<Option<S>> = from_slice(input.as_bytes());
+        println!("{:?}", s);
+        let s = s.unwrap();
+        let expected = None;
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_struct_some() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: Option<i32>,
+        }
+
+        let input = "d5:inneri32ee";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S { inner: Some(32) };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_struct_none_dict() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: Option<i32>,
+        }
+
+        let input = "de";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S { inner: None };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_struct_some_none() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: Option<T>,
+        }
+
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct T {
+            innermost: Option<i32>,
+        }
+
+        let input = "d5:innerdee";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S {
+            inner: Some(T { innermost: None }),
+        };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_struct_some_some() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: Option<T>,
+        }
+
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct T {
+            innermost: Option<i32>,
+        }
+
+        let input = "d5:innerd9:innermosti32eee";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S {
+            inner: Some(T {
+                innermost: Some(32),
+            }),
+        };
+        assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[test]
+    fn test_deserialize_inner_none() -> Result<()> {
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct S {
+            inner: Option<T>,
+        }
+
+        #[derive(Debug, PartialEq, Deserialize)]
+        struct T {
+            innermost: Option<i32>,
+        }
+
+        let input = "de";
+        let s: S = from_slice(input.as_bytes())?;
+        let expected = S { inner: None };
+        assert_eq!(s, expected);
+        Ok(())
+    }
 }

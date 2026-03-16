@@ -181,7 +181,7 @@ where
 
     #[inline]
     fn serialize_none(self) -> Result<()> {
-        self.serialize_unit()
+        Ok(())
     }
 
     #[inline]
@@ -638,6 +638,8 @@ impl ser::Serializer for &mut MapKeySerializer {
 mod tests {
     use crate::ByteString;
 
+    use serde_derive::Serialize;
+
     use super::*;
 
     #[cfg(all(feature = "alloc", not(feature = "std")))]
@@ -785,13 +787,49 @@ mod tests {
     #[test]
     fn test_serialize_none() {
         let value: Option<i64> = None;
-        assert_is_unsupported_type!(to_vec(&value));
+        assert_eq!(to_vec(&value).unwrap(), String::from("").into_bytes());
     }
 
     #[test]
     fn test_serialize_some() {
         let value: Option<i64> = Some(2);
         assert_eq!(to_vec(&value).unwrap(), String::from("i2e").into_bytes());
+    }
+
+    #[test]
+    fn test_serialize_none_struct() {
+        #[derive(Debug, PartialEq, Serialize)]
+        struct S {
+            inner: i64,
+        }
+
+        let value: Option<S> = None;
+        assert_eq!(to_vec(&value).unwrap(), String::from("").into_bytes());
+    }
+
+    #[test]
+    fn test_serialize_none_struct_none() {
+        #[derive(Debug, PartialEq, Serialize)]
+        struct S {
+            inner: Option<i64>,
+        }
+
+        let value: Option<S> = None;
+        assert_eq!(to_vec(&value).unwrap(), String::from("").into_bytes());
+    }
+
+    #[test]
+    fn test_serialize_some_struct_some() {
+        #[derive(Debug, PartialEq, Serialize)]
+        struct S {
+            inner: Option<i64>,
+        }
+
+        let value: Option<S> = Some(S { inner: Some(32) });
+        assert_eq!(
+            to_vec(&value).unwrap(),
+            String::from("d5:inneri32ee").into_bytes()
+        );
     }
 
     #[test]
