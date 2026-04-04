@@ -35,7 +35,7 @@ where
 ///
 /// # Errors
 ///
-/// Serialization can fail if `T`'s implemenation of
+/// Serialization can fail if `T`'s implementation of
 /// [Serialize][serde::ser::Serialize] decides to fail, if `T` contains
 /// unsupported types for serialization, or if `T` contains a map with
 /// non-string keys.
@@ -90,8 +90,8 @@ where
     type SerializeTuple = Self;
     type SerializeTupleStruct = Self;
     type SerializeTupleVariant = ser::Impossible<(), Error>;
-    type SerializeMap = SerializeMap<'a, W>;
-    type SerializeStruct = SerializeMap<'a, W>;
+    type SerializeMap = Compound<'a, W>;
+    type SerializeStruct = Compound<'a, W>;
     type SerializeStructVariant = ser::Impossible<(), Error>;
 
     #[inline]
@@ -268,11 +268,16 @@ where
     #[inline]
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
         self.writer.write_all(b"d")?;
-        Ok(SerializeMap::new(self))
+        Ok(Compound::new_map(self))
     }
 
     #[inline]
-    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        #[cfg(feature = "raw_value")]
+        if name == crate::raw::TOKEN {
+            return Ok(Compound::RawValue { ser: self });
+        }
+        let _ = name;
         self.serialize_map(Some(len))
     }
 
@@ -361,41 +366,33 @@ where
 /// A serializer for writing map data.
 #[doc(hidden)]
 #[derive(Debug)]
-pub struct SerializeMap<'a, W> {
-    ser: &'a mut Serializer<W>,
-    entries: BTreeMap<Vec<u8>, Vec<u8>>,
-    current_key: Option<Vec<u8>>,
+pub enum Compound<'a, W> {
+    Map {
+        ser: &'a mut Serializer<W>,
+        entries: BTreeMap<Vec<u8>, Vec<u8>>,
+        current_key: Option<Vec<u8>>,
+    },
+    #[cfg(feature = "raw_value")]
+    RawValue {
+        ser: &'a mut Serializer<W>,
+    },
 }
 
-impl<'a, W> SerializeMap<'a, W>
+impl<'a, W> Compound<'a, W>
 where
     W: Write,
 {
     #[inline]
-    fn new(ser: &'a mut Serializer<W>) -> Self {
-        SerializeMap {
+    fn new_map(ser: &'a mut Serializer<W>) -> Self {
+        Compound::Map {
             ser,
             entries: BTreeMap::new(),
             current_key: None,
         }
     }
-
-    #[inline]
-    fn end_map(&mut self) -> Result<()> {
-        if self.current_key.is_some() {
-            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
-        }
-
-        for (k, v) in &self.entries {
-            ser::Serializer::serialize_bytes(&mut *self.ser, k.as_ref())?;
-            self.ser.writer.write_all(v)?;
-        }
-
-        Ok(())
-    }
 }
 
-impl<W> ser::SerializeMap for SerializeMap<'_, W>
+impl<W> ser::SerializeMap for Compound<'_, W>
 where
     W: Write,
 {
@@ -407,11 +404,17 @@ where
     where
         T: ?Sized + Serialize,
     {
-        if self.current_key.is_some() {
-            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
+        match self {
+            Compound::Map { current_key, .. } => {
+                if current_key.is_some() {
+                    return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
+                }
+                *current_key = Some(key.serialize(&mut MapKeySerializer {})?);
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            Compound::RawValue { .. } => unreachable!(),
         }
-        self.current_key = Some(key.serialize(&mut MapKeySerializer {})?);
-        Ok(())
     }
 
     #[inline]
@@ -419,26 +422,52 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let key = self
-            .current_key
-            .take()
-            .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
-        let buf: Vec<u8> = Vec::new();
-        let mut ser = Serializer::new(buf);
-        value.serialize(&mut ser)?;
-        self.entries.insert(key, ser.into_inner());
-        Ok(())
+        match self {
+            Compound::Map {
+                entries,
+                current_key,
+                ..
+            } => {
+                let key = current_key
+                    .take()
+                    .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
+                let buf: Vec<u8> = Vec::new();
+                let mut ser = Serializer::new(buf); // TODO: optimize?
+                value.serialize(&mut ser)?;
+                entries.insert(key, ser.into_inner());
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            Compound::RawValue { .. } => unreachable!(),
+        }
     }
 
     #[inline]
     fn end(mut self) -> Result<()> {
-        self.end_map()?;
-        self.ser.writer.write_all(b"e")?;
-        Ok(())
+        match self {
+            Compound::Map {
+                ref mut ser,
+                entries,
+                current_key,
+            } => {
+                if current_key.is_some() {
+                    return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
+                }
+
+                for (k, v) in entries {
+                    ser::Serializer::serialize_bytes(&mut **ser, k.as_ref())?; // TODO: why
+                    ser.writer.write_all(&v)?;
+                }
+                ser.writer.write_all(b"e")?;
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            Compound::RawValue { .. } => unreachable!(),
+        }
     }
 }
 
-impl<W> ser::SerializeStruct for SerializeMap<'_, W>
+impl<W> ser::SerializeStruct for Compound<'_, W>
 where
     W: Write,
 {
@@ -450,20 +479,34 @@ where
     where
         T: ?Sized + Serialize,
     {
-        let key = key.serialize(&mut MapKeySerializer {})?;
+        match self {
+            Compound::Map { entries, .. } => {
+                let key = key.serialize(&mut MapKeySerializer {})?;
 
-        let buf: Vec<u8> = Vec::new();
-        let mut ser = Serializer::new(buf);
-        value.serialize(&mut ser)?;
-        self.entries.insert(key, ser.into_inner());
-        Ok(())
+                let buf: Vec<u8> = Vec::new();
+                let mut ser = Serializer::new(buf);
+                value.serialize(&mut ser)?;
+                entries.insert(key, ser.into_inner());
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            Compound::RawValue { ser } => {
+                if key == crate::raw::TOKEN {
+                    value.serialize(&mut RawValueSerializer::new(&mut ser.writer))
+                } else {
+                    Err(Error::with_kind(ErrorKind::UnsupportedType))
+                }
+            }
+        }
     }
 
     #[inline]
-    fn end(mut self) -> Result<()> {
-        self.end_map()?;
-        self.ser.writer.write_all(b"e")?;
-        Ok(())
+    fn end(self) -> Result<()> {
+        match self {
+            Compound::Map { .. } => ser::SerializeMap::end(self),
+            #[cfg(feature = "raw_value")]
+            Compound::RawValue { .. } => Ok(()),
+        }
     }
 }
 
@@ -630,6 +673,181 @@ impl ser::Serializer for &mut MapKeySerializer {
         _variant: &'static str,
         _len: usize,
     ) -> Result<ser::Impossible<Vec<u8>, Error>> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+}
+
+#[cfg(feature = "raw_value")]
+struct RawValueSerializer<'a, W> {
+    writer: &'a mut W,
+}
+
+#[cfg(feature = "raw_value")]
+impl<'a, W> RawValueSerializer<'a, W>
+where
+    W: Write,
+{
+    pub(crate) fn new(writer: &'a mut W) -> Self {
+        RawValueSerializer { writer }
+    }
+}
+
+#[cfg(feature = "raw_value")]
+impl<W> ser::Serializer for &mut RawValueSerializer<'_, W>
+where
+    W: Write,
+{
+    type Ok = ();
+    type Error = Error;
+
+    type SerializeSeq = ser::Impossible<(), Error>;
+    type SerializeTuple = ser::Impossible<(), Error>;
+    type SerializeTupleStruct = ser::Impossible<(), Error>;
+    type SerializeTupleVariant = ser::Impossible<(), Error>;
+    type SerializeMap = ser::Impossible<(), Error>;
+    type SerializeStruct = ser::Impossible<(), Error>;
+    type SerializeStructVariant = ser::Impossible<(), Error>;
+
+    fn serialize_bool(self, _value: bool) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_i8(self, _value: i8) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_i16(self, _value: i16) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_i32(self, _value: i32) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_i64(self, _value: i64) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_u8(self, _value: u8) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_u16(self, _value: u16) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_u32(self, _value: u32) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_u64(self, _value: u64) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_f32(self, _value: f32) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_f64(self, _value: f64) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_char(self, _value: char) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_str(self, value: &str) -> Result<()> {
+        self.writer.write_all(value.as_bytes())
+    }
+
+    fn serialize_bytes(self, value: &[u8]) -> Result<()> {
+        self.writer.write_all(value)
+    }
+
+    fn serialize_unit(self) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        _value: &T,
+    ) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _value: &T,
+    ) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_none(self) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_some<T: ?Sized + Serialize>(self, _value: &T) -> Result<()> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_seq(self, _len: Option<usize>) -> Result<Self::SerializeSeq> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleStruct> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeTupleVariant> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
+        Err(Error::with_kind(ErrorKind::UnsupportedType))
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _len: usize,
+    ) -> Result<Self::SerializeStructVariant> {
         Err(Error::with_kind(ErrorKind::UnsupportedType))
     }
 }
@@ -917,5 +1135,31 @@ mod tests {
             to_vec(&test).unwrap(),
             String::from("d3:inti3e1:s13:Hello, World!e").into_bytes()
         );
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_encode_raw_value_top_level() {
+        use crate::RawValue;
+
+        let raw = RawValue::from_slice(b"d3:fooi1e3:bar4:spam3:bazli2ei3eee");
+        let encoded = to_vec(&raw).unwrap();
+        assert_eq!(encoded, raw.get());
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_encode_raw_value_struct_field() {
+        use crate::RawValue;
+        use serde_derive::Serialize;
+
+        #[derive(Serialize)]
+        struct Envelope<'a> {
+            payload: &'a RawValue,
+        }
+
+        let payload = RawValue::from_slice(b"d1:ai1e1:bi2ee");
+        let encoded = to_vec(&Envelope { payload: &payload }).unwrap();
+        assert_eq!(encoded, b"d7:payloadd1:ai1e1:bi2eee");
     }
 }

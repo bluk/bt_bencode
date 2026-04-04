@@ -263,6 +263,63 @@ impl<'a> Deserializer<read::SliceRead<'a>> {
     }
 }
 
+impl<'de, R: Read<'de>> Deserializer<R> {
+    #[cfg(feature = "raw_value")]
+    fn deserialize_raw_value<V>(&mut self, visitor: V) -> Result<V::Value>
+    where
+        V: de::Visitor<'de>,
+    {
+        self.read.begin_raw_buffering();
+        self.ignore_value()?;
+        self.read.end_raw_buffering(visitor)
+    }
+
+    #[cfg(feature = "raw_value")]
+    fn ignore_value(&mut self) -> Result<()> {
+        match self.parse_peek()? {
+            b'0'..=b'9' => {
+                self.buf.clear();
+                self.read.parse_byte_str(&mut self.buf)?;
+                Ok(())
+            }
+            b'i' => {
+                self.parse_next()?;
+                self.parse_integer()?;
+                Ok(())
+            }
+            b'l' => {
+                self.parse_next()?;
+                loop {
+                    if self.parse_peek()? == b'e' {
+                        self.parse_next()?;
+                        break;
+                    }
+                    self.ignore_value()?;
+                }
+                Ok(())
+            }
+            b'd' => {
+                self.parse_next()?;
+                loop {
+                    if self.parse_peek()? == b'e' {
+                        self.parse_next()?;
+                        break;
+                    }
+
+                    self.buf.clear();
+                    self.read.parse_byte_str(&mut self.buf)?;
+                    self.ignore_value()?;
+                }
+                Ok(())
+            }
+            _ => Err(Error::new(
+                ErrorKind::ExpectedSomeValue,
+                self.read.byte_offset(),
+            )),
+        }
+    }
+}
+
 impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
     type Error = Error;
 
@@ -393,10 +450,16 @@ impl<'de, R: Read<'de>> de::Deserializer<'de> for &mut Deserializer<R> {
     }
 
     #[inline]
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        #[cfg(feature = "raw_value")]
+        if name == crate::raw::TOKEN {
+            return self.deserialize_raw_value(visitor);
+        }
+
+        let _ = name;
         visitor.visit_newtype_struct(self)
     }
 
@@ -481,10 +544,16 @@ where
     }
 
     #[inline]
-    fn deserialize_newtype_struct<V>(self, _name: &'static str, visitor: V) -> Result<V::Value>
+    fn deserialize_newtype_struct<V>(self, name: &'static str, visitor: V) -> Result<V::Value>
     where
         V: de::Visitor<'de>,
     {
+        #[cfg(feature = "raw_value")]
+        if name == crate::raw::TOKEN {
+            return self.de.deserialize_raw_value(visitor);
+        }
+
+        let _ = name;
         visitor.visit_newtype_struct(self)
     }
 
@@ -768,6 +837,34 @@ mod tests {
         let s: S = from_slice(input.as_bytes())?;
         let expected = S(ByteString::from(input.as_bytes().to_vec()));
         assert_eq!(s, expected);
+        Ok(())
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_decode_raw_value_top_level() -> Result<()> {
+        use crate::RawValue;
+
+        let input = b"li1ei2ei3ee";
+        let raw: RawValue = from_slice(input)?;
+        assert_eq!(raw.get(), input);
+        Ok(())
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_decode_raw_value_struct_field() -> Result<()> {
+        use crate::RawValue;
+        use serde_derive::Deserialize;
+
+        #[derive(Deserialize)]
+        struct Envelope {
+            payload: RawValue,
+        }
+
+        let input = b"d7:payloadli1ei2eee";
+        let decoded: Envelope = from_slice(input)?;
+        assert_eq!(decoded.payload.get(), b"li1ei2ee");
         Ok(())
     }
 }
