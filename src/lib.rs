@@ -112,6 +112,9 @@ mod error;
 pub mod read;
 pub mod write;
 
+#[cfg(feature = "raw_value")]
+mod raw;
+
 mod ser;
 pub mod value;
 
@@ -134,3 +137,7 @@ pub use ser::{to_vec, Serializer};
 #[doc(inline)]
 #[cfg(feature = "std")]
 pub use de::from_reader;
+
+#[cfg(feature = "raw_value")]
+#[cfg_attr(docsrs, doc(cfg(feature = "raw_value")))]
+pub use raw::RawValue;

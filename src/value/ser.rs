@@ -186,14 +186,19 @@ impl ser::Serializer for Serializer {
 
     #[inline]
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
-        Ok(SerializeDict {
+        Ok(SerializeDict::Map {
             dict: BTreeMap::new(),
             current_key: None,
         })
     }
 
     #[inline]
-    fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, name: &'static str, len: usize) -> Result<Self::SerializeStruct> {
+        #[cfg(feature = "raw_value")]
+        if name == crate::raw::TOKEN {
+            return Ok(SerializeDict::RawValue { bytes: None });
+        }
+        let _ = name;
         self.serialize_map(Some(len))
     }
 
@@ -236,9 +241,13 @@ impl ser::SerializeSeq for SerializeList {
     }
 }
 
-pub(super) struct SerializeDict {
-    dict: BTreeMap<ByteString, Value>,
-    current_key: Option<ByteString>,
+pub(super) enum SerializeDict {
+    Map {
+        dict: BTreeMap<ByteString, Value>,
+        current_key: Option<ByteString>,
+    },
+    #[cfg(feature = "raw_value")]
+    RawValue { bytes: Option<ByteString> },
 }
 
 impl ser::SerializeMap for SerializeDict {
@@ -250,11 +259,17 @@ impl ser::SerializeMap for SerializeDict {
     where
         T: ?Sized + Serialize,
     {
-        if self.current_key.is_some() {
-            return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
+        match self {
+            SerializeDict::Map { current_key, .. } => {
+                if current_key.is_some() {
+                    return Err(Error::with_kind(ErrorKind::KeyWithoutValue));
+                }
+                *current_key = Some(key.serialize(&mut DictKeySerializer)?);
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            SerializeDict::RawValue { .. } => unreachable!(),
         }
-        self.current_key = Some(key.serialize(&mut DictKeySerializer)?);
-        Ok(())
     }
 
     #[inline]
@@ -262,18 +277,27 @@ impl ser::SerializeMap for SerializeDict {
     where
         T: ?Sized + Serialize,
     {
-        let key = self
-            .current_key
-            .take()
-            .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
-        let value = super::to_value(value)?;
-        self.dict.insert(key, value);
-        Ok(())
+        match self {
+            SerializeDict::Map { dict, current_key } => {
+                let key = current_key
+                    .take()
+                    .ok_or_else(|| Error::with_kind(ErrorKind::ValueWithoutKey))?;
+                let value = super::to_value(value)?;
+                dict.insert(key, value);
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            SerializeDict::RawValue { .. } => unreachable!(),
+        }
     }
 
     #[inline]
     fn end(self) -> Result<Self::Ok> {
-        Ok(Value::Dict(self.dict))
+        match self {
+            SerializeDict::Map { dict, .. } => Ok(Value::Dict(dict)),
+            #[cfg(feature = "raw_value")]
+            SerializeDict::RawValue { .. } => unreachable!(),
+        }
     }
 }
 
@@ -286,15 +310,35 @@ impl ser::SerializeStruct for SerializeDict {
     where
         T: ?Sized + Serialize,
     {
-        let key = key.serialize(&mut DictKeySerializer)?;
-        let value = super::to_value(value)?;
-        self.dict.insert(key, value);
-        Ok(())
+        match self {
+            SerializeDict::Map { dict, .. } => {
+                let key = key.serialize(&mut DictKeySerializer)?;
+                let value = super::to_value(value)?;
+                dict.insert(key, value);
+                Ok(())
+            }
+            #[cfg(feature = "raw_value")]
+            SerializeDict::RawValue { bytes } => {
+                if key == crate::raw::TOKEN {
+                    *bytes = Some(value.serialize(&mut DictKeySerializer)?);
+                    Ok(())
+                } else {
+                    Err(Error::with_kind(ErrorKind::UnsupportedType))
+                }
+            }
+        }
     }
 
     #[inline]
     fn end(self) -> Result<Self::Ok> {
-        Ok(Value::Dict(self.dict))
+        match self {
+            SerializeDict::Map { dict, .. } => Ok(Value::Dict(dict)),
+            #[cfg(feature = "raw_value")]
+            SerializeDict::RawValue { bytes } => {
+                let raw = bytes.expect("raw value was not emitted");
+                crate::de::from_slice(raw.as_slice())
+            }
+        }
     }
 }
 
@@ -739,5 +783,40 @@ mod tests {
         );
 
         assert_eq!(to_value(&test).unwrap(), Value::Dict(expected));
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_serialize_raw_value_top_level() {
+        use crate::raw::RawValue;
+        // d3:fooi1e3:bar4:spame encodes {"foo": 1, "bar": "spam"}
+        let raw = RawValue::from_slice(b"d3:fooi1e3:bar4:spame");
+        let v = to_value(&raw).unwrap();
+        let mut expected = BTreeMap::new();
+        expected.insert(
+            ByteString::from("bar"),
+            Value::ByteStr(ByteString::from("spam")),
+        );
+        expected.insert(ByteString::from("foo"), Value::Int(Number::Unsigned(1)));
+        assert_eq!(v, Value::Dict(expected));
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_serialize_raw_value_struct_field() {
+        use crate::raw::RawValue;
+        use serde_derive::Serialize;
+        #[derive(Serialize)]
+        struct S<'a> {
+            payload: &'a RawValue,
+        }
+        // d1:ai1ee encodes {"a": 1}
+        let raw = RawValue::from_slice(b"d1:ai1ee");
+        let v = to_value(&S { payload: &raw }).unwrap();
+        let mut inner = BTreeMap::new();
+        inner.insert(ByteString::from("a"), Value::Int(Number::Unsigned(1)));
+        let mut expected = BTreeMap::new();
+        expected.insert(ByteString::from("payload"), Value::Dict(inner));
+        assert_eq!(v, Value::Dict(expected));
     }
 }

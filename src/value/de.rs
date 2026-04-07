@@ -2,6 +2,8 @@
 
 use super::{Number, Value};
 use crate::error::Error;
+#[cfg(feature = "raw_value")]
+use crate::raw::OwnedRawDeserializer;
 use crate::ByteString;
 use serde::de::{DeserializeSeed, IntoDeserializer, MapAccess, SeqAccess, Visitor};
 use serde::forward_to_deserialize_any;
@@ -84,12 +86,20 @@ impl<'de> serde::Deserializer<'de> for Value {
     #[inline]
     fn deserialize_newtype_struct<V>(
         self,
-        _name: &'static str,
+        name: &'static str,
         visitor: V,
     ) -> Result<V::Value, Self::Error>
     where
         V: Visitor<'de>,
     {
+        #[cfg(feature = "raw_value")]
+        if name == crate::raw::TOKEN {
+            let bytes = crate::to_vec(&self).map_err(serde::de::Error::custom)?;
+            return visitor.visit_map(OwnedRawDeserializer {
+                raw_value: Some(bytes),
+            });
+        }
+        let _ = name;
         visitor.visit_newtype_struct(self)
     }
 
@@ -588,6 +598,37 @@ mod tests {
             ],
         );
         assert_eq!(d, expected);
+        Ok(())
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_deserialize_raw_value_from_value_top_level() -> Result<()> {
+        use crate::raw::RawValue;
+        // Value::Dict({"foo": 1}) → RawValue bytes = "d3:fooi1ee"
+        let mut dict = BTreeMap::new();
+        dict.insert(ByteString::from("foo"), Value::Int(Number::Unsigned(1)));
+        let raw: RawValue = from_value(Value::Dict(dict))?;
+        assert_eq!(raw.get(), b"d3:fooi1ee");
+        Ok(())
+    }
+
+    #[cfg(feature = "raw_value")]
+    #[test]
+    fn test_deserialize_raw_value_from_value_struct_field() -> Result<()> {
+        use crate::raw::RawValue;
+        use serde_derive::Deserialize;
+        #[derive(Deserialize)]
+        struct S {
+            payload: RawValue,
+        }
+        // payload contains {"a": 1}
+        let mut inner = BTreeMap::new();
+        inner.insert(ByteString::from("a"), Value::Int(Number::Unsigned(1)));
+        let mut dict = BTreeMap::new();
+        dict.insert(ByteString::from("payload"), Value::Dict(inner));
+        let s: S = from_value(Value::Dict(dict))?;
+        assert_eq!(s.payload.get(), b"d1:ai1ee");
         Ok(())
     }
 }

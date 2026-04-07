@@ -9,6 +9,9 @@ use alloc::vec::Vec;
 #[cfg(feature = "std")]
 use std::{io, vec::Vec};
 
+#[cfg(feature = "raw_value")]
+use {crate::raw::OwnedRawDeserializer, serde::de::Visitor};
+
 /// A reference to borrowed data.
 ///
 /// The variant determines if the slice comes from a long lived source (e.g. an
@@ -125,6 +128,24 @@ pub trait Read<'a> {
     /// - malformatted input
     /// - end of file
     fn parse_raw_dict<'b>(&'b mut self, buf: &'b mut Vec<u8>) -> Result<Ref<'a, 'b, [u8]>>;
+
+    /// Starts recording all subsequently read bytes into an internal buffer.
+    ///
+    /// Must be paired with a call to [`end_raw_buffering`][Read::end_raw_buffering].
+    /// Used internally to capture the raw bencode encoding of a single value
+    /// for [`RawValue`][crate::RawValue] deserialization.
+    #[cfg(feature = "raw_value")]
+    #[doc(hidden)]
+    fn begin_raw_buffering(&mut self);
+
+    /// Stops recording, takes the buffered bytes, and delivers them to `visitor`
+    /// via [`MapAccess`][serde::de::MapAccess] so that [`RawValue`][crate::RawValue]
+    /// deserialization can reconstruct the value.
+    #[cfg(feature = "raw_value")]
+    #[doc(hidden)]
+    fn end_raw_buffering<V>(&mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'a>;
 }
 
 /// A wrapper to implement this crate's [Read] trait for [`std::io::Read`] trait implementations.
@@ -138,6 +159,9 @@ where
     iter: io::Bytes<R>,
     peeked_byte: Option<u8>,
     byte_offset: usize,
+
+    #[cfg(feature = "raw_value")]
+    raw_buffer: Option<Vec<u8>>,
 }
 
 #[cfg(feature = "std")]
@@ -157,6 +181,9 @@ where
             iter: reader.bytes(),
             peeked_byte: None,
             byte_offset: 0,
+
+            #[cfg(feature = "raw_value")]
+            raw_buffer: None,
         }
     }
 }
@@ -170,11 +197,19 @@ where
     fn next(&mut self) -> Option<Result<u8>> {
         match self.peeked_byte.take() {
             Some(b) => {
+                #[cfg(feature = "raw_value")]
+                if let Some(buf) = &mut self.raw_buffer {
+                    buf.push(b);
+                }
                 self.byte_offset += 1;
                 Some(Ok(b))
             }
             None => match self.iter.next() {
                 Some(Ok(b)) => {
+                    #[cfg(feature = "raw_value")]
+                    if let Some(buf) = &mut self.raw_buffer {
+                        buf.push(b);
+                    }
                     self.byte_offset += 1;
                     Some(Ok(b))
                 }
@@ -402,6 +437,22 @@ where
             }
         }
     }
+
+    #[cfg(feature = "raw_value")]
+    fn begin_raw_buffering(&mut self) {
+        self.raw_buffer = Some(Vec::new());
+    }
+
+    #[cfg(feature = "raw_value")]
+    fn end_raw_buffering<V>(&mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'a>,
+    {
+        let raw = self.raw_buffer.take().unwrap();
+        visitor.visit_map(OwnedRawDeserializer {
+            raw_value: Some(raw),
+        })
+    }
 }
 
 /// A wrapper to implement this crate's [Read] trait for byte slices.
@@ -410,6 +461,9 @@ where
 pub struct SliceRead<'a> {
     slice: &'a [u8],
     byte_offset: usize,
+
+    #[cfg(feature = "raw_value")]
+    raw_buffer: Option<Vec<u8>>,
 }
 
 impl<'a> SliceRead<'a> {
@@ -419,6 +473,9 @@ impl<'a> SliceRead<'a> {
         SliceRead {
             slice,
             byte_offset: 0,
+
+            #[cfg(feature = "raw_value")]
+            raw_buffer: None,
         }
     }
 }
@@ -428,6 +485,10 @@ impl<'a> Read<'a> for SliceRead<'a> {
     fn next(&mut self) -> Option<Result<u8>> {
         if self.byte_offset < self.slice.len() {
             let b = self.slice[self.byte_offset];
+            #[cfg(feature = "raw_value")]
+            if let Some(buf) = &mut self.raw_buffer {
+                buf.push(b);
+            }
             self.byte_offset += 1;
             Some(Ok(b))
         } else {
@@ -482,6 +543,11 @@ impl<'a> Read<'a> for SliceRead<'a> {
                 ErrorKind::EofWhileParsingValue,
                 self.byte_offset(),
             ));
+        }
+
+        #[cfg(feature = "raw_value")]
+        if let Some(buf) = &mut self.raw_buffer {
+            buf.extend_from_slice(&self.slice[start_idx..self.byte_offset]);
         }
 
         Ok(Ref::Source(&self.slice[start_idx..self.byte_offset]))
@@ -647,5 +713,21 @@ impl<'a> Read<'a> for SliceRead<'a> {
                 }
             }
         }
+    }
+
+    #[cfg(feature = "raw_value")]
+    fn begin_raw_buffering(&mut self) {
+        self.raw_buffer = Some(Vec::new());
+    }
+
+    #[cfg(feature = "raw_value")]
+    fn end_raw_buffering<V>(&mut self, visitor: V) -> Result<V::Value>
+    where
+        V: Visitor<'a>,
+    {
+        let raw = self.raw_buffer.take().unwrap();
+        visitor.visit_map(OwnedRawDeserializer {
+            raw_value: Some(raw),
+        })
     }
 }

@@ -24,8 +24,8 @@ rust-version = "1.36.0"
 version = "0.8.2"
 
 [dependencies]
-itoa = {version = "1.0.0", default-features = false }
-serde = {version = "1.0.100", default-features = false }
+itoa = { version = "1.0.0", default-features = false }
+serde = { version = "1.0.100", default-features = false }
 
 [dev-dependencies]
 serde_derive = "1.0.100"
@@ -37,6 +37,8 @@ default = ["std"]
 std = ["serde/std"]
 
 alloc = ["serde/alloc"]
+
+raw_value = []
 
 [package.metadata.docs.rs]
 all-features = true
